@@ -30,12 +30,14 @@ import {
   Phone,
   FileText,
   Heart,
+  BadgeCheck,
+  KeyRound,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
 
-type Section = 'main' | 'editProfile' | 'notifications' | 'privacy' | 'help' | 'about';
+type Section = 'main' | 'editProfile' | 'notifications' | 'privacy' | 'help' | 'about' | 'verification';
 
 export default function SettingsScreen() {
   const { profile, signOut, refreshProfile } = useAuth();
@@ -50,6 +52,9 @@ export default function SettingsScreen() {
   const [activityStatus, setActivityStatus] = useState(true);
   const [storySharing, setStorySharing] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [adminToken, setAdminToken] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   const [editName, setEditName] = useState('');
   const [editUsername, setEditUsername] = useState('');
@@ -124,6 +129,40 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const handleLifetimeVerify = async () => {
+    if (!verifyCode.trim()) {
+      Alert.alert('Enter a code', 'Please enter the verification code.');
+      return;
+    }
+    setVerifying(true);
+    const { data, error } = await supabase.rpc('redeem_lifetime_verification', { p_code: verifyCode.trim() });
+    setVerifying(false);
+    if (error) {
+      Alert.alert('Verification Failed', error.message || 'The code is invalid or all badges have been claimed.');
+      return;
+    }
+    setVerifyCode('');
+    await refreshProfile();
+    Alert.alert('Verified!', data || 'You now have a lifetime verified badge.');
+  };
+
+  const handleAdminVerify = async () => {
+    if (!adminToken.trim()) {
+      Alert.alert('Enter token', 'Please enter the admin verification token.');
+      return;
+    }
+    setVerifying(true);
+    const { data, error } = await supabase.rpc('apply_admin_verification', { p_token: adminToken.trim() });
+    setVerifying(false);
+    if (error) {
+      Alert.alert('Verification Failed', error.message || 'Invalid admin token.');
+      return;
+    }
+    setAdminToken('');
+    await refreshProfile();
+    Alert.alert('Admin Verified!', data || 'Admin verification applied successfully.');
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
@@ -170,6 +209,95 @@ export default function SettingsScreen() {
       <ChevronRight color={Colors.textSecondary} size={20} />
     </Pressable>
   );
+
+  if (section === 'verification') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.subHeader}>
+          <Pressable onPress={() => setSection('main')}><ArrowLeft color={Colors.text} size={24} /></Pressable>
+          <Text style={styles.subHeaderTitle}>Get Verified</Text>
+          <View style={styles.spacer} />
+        </View>
+        <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent}>
+          {profile?.is_verified ? (
+            <View style={styles.verifiedBadge}>
+              <BadgeCheck color={Colors.primary} size={48} />
+              <Text style={styles.verifiedTitle}>You are verified!</Text>
+              <Text style={styles.verifiedType}>
+                {profile.verification_type === 'lifetime' ? 'Lifetime Verified Badge' : 'Admin Verified'}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.verifyIntro}>
+              <View style={styles.verifyIcon}>
+                <BadgeCheck color={Colors.primary} size={36} />
+              </View>
+              <Text style={styles.verifyTitle}>Get Verified on Faliz Gram</Text>
+              <Text style={styles.verifyDescription}>
+                Earn a verified badge next to your username. Two options are available:
+              </Text>
+            </View>
+          )}
+
+          {!profile?.is_verified && (
+            <>
+              <Text style={styles.sectionHeading}>Lifetime Badge</Text>
+              <View style={styles.card}>
+                <View style={styles.verifyInfoRow}>
+                  <Heart color={Colors.error} size={18} />
+                  <Text style={styles.verifyInfoText}>Only 2 users can claim a lifetime badge.</Text>
+                </View>
+                <View style={styles.verifyInfoRow}>
+                  <KeyRound color={Colors.text} size={18} />
+                  <Text style={styles.verifyInfoText}>Enter the secret code to claim yours.</Text>
+                </View>
+                <TextInput
+                  style={styles.textInput}
+                  value={verifyCode}
+                  onChangeText={setVerifyCode}
+                  placeholder="Enter verification code"
+                  placeholderTextColor={Colors.textSecondary}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <Pressable style={styles.verifyButton} onPress={handleLifetimeVerify} disabled={verifying}>
+                  {verifying ? (
+                    <ActivityIndicator color={Colors.white} size="small" />
+                  ) : (
+                    <Text style={styles.verifyButtonText}>Claim Lifetime Badge</Text>
+                  )}
+                </Pressable>
+              </View>
+
+              <Text style={styles.sectionHeading}>Admin Verification</Text>
+              <View style={styles.card}>
+                <View style={styles.verifyInfoRow}>
+                  <Shield color={Colors.text} size={18} />
+                  <Text style={styles.verifyInfoText}>Use the admin token to get verified.</Text>
+                </View>
+                <TextInput
+                  style={styles.textInput}
+                  value={adminToken}
+                  onChangeText={setAdminToken}
+                  placeholder="Enter admin token"
+                  placeholderTextColor={Colors.textSecondary}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <Pressable style={styles.verifyButton} onPress={handleAdminVerify} disabled={verifying}>
+                  {verifying ? (
+                    <ActivityIndicator color={Colors.white} size="small" />
+                  ) : (
+                    <Text style={styles.verifyButtonText}>Apply Admin Verification</Text>
+                  )}
+                </Pressable>
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
 
   if (section === 'editProfile') {
     return (
@@ -316,6 +444,17 @@ export default function SettingsScreen() {
           {renderNavRow(<Lock color={Colors.text} size={20} />, 'Privacy & Security', () => setSection('privacy'))}
         </View>
 
+        <Text style={styles.sectionHeading}>Verification</Text>
+        <View style={styles.card}>
+          {renderNavRow(<BadgeCheck color={Colors.primary} size={20} />, 'Get Verified', () => setSection('verification'))}
+          {profile?.is_verified && (
+            <View style={styles.verifiedRow}>
+              <BadgeCheck color={Colors.primary} size={22} />
+              <Text style={styles.verifiedLabel}>Verified ({profile.verification_type === 'lifetime' ? 'Lifetime' : 'Admin'})</Text>
+            </View>
+          )}
+        </View>
+
         <Text style={styles.sectionHeading}>Notifications</Text>
         <View style={styles.card}>
           {renderNavRow(<Bell color={Colors.text} size={20} />, 'Notification Settings', () => setSection('notifications'))}
@@ -373,4 +512,17 @@ const styles = StyleSheet.create({
   aboutVersion: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary, marginBottom: Spacing.xs },
   aboutTagline: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary, marginBottom: Spacing.xl },
   aboutCard: { width: '100%' },
+  verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
+  verifiedLabel: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.primary },
+  verifiedBadge: { alignItems: 'center', paddingVertical: Spacing.xl, marginBottom: Spacing.lg },
+  verifiedTitle: { fontFamily: 'Inter-Bold', fontSize: FontSizes.xl, color: Colors.text, marginTop: Spacing.md },
+  verifiedType: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary, marginTop: Spacing.xs },
+  verifyIntro: { alignItems: 'center', paddingVertical: Spacing.lg },
+  verifyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#EAF5FF', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
+  verifyTitle: { fontFamily: 'Inter-Bold', fontSize: FontSizes.xl, color: Colors.text, textAlign: 'center' },
+  verifyDescription: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm, lineHeight: 21 },
+  verifyInfoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+  verifyInfoText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.text, flex: 1 },
+  verifyButton: { backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', marginTop: Spacing.md, marginBottom: Spacing.sm, marginHorizontal: Spacing.md },
+  verifyButtonText: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.white },
 });

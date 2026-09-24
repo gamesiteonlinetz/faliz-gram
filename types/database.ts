@@ -5,6 +5,8 @@ export interface Profile {
   avatar_url: string | null;
   bio: string;
   created_at: string;
+  is_verified?: boolean;
+  verification_type?: 'none' | 'lifetime' | 'admin';
 }
 
 export interface Post {

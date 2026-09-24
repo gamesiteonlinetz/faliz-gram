@@ -17,6 +17,7 @@ import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from 'lucide-rea
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
+import { UsernameWithBadge } from '@/components/VerifiedBadge';
 import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
 import type { PostWithProfile, Story, Profile } from '@/types/database';
 
@@ -35,7 +36,7 @@ export default function HomeScreen() {
       .select(`
         *,
         profiles:user_id (
-          id, username, full_name, avatar_url, bio, created_at
+          id, username, full_name, avatar_url, bio, created_at, is_verified, verification_type
         )
       `)
       .order('created_at', { ascending: false })
@@ -82,7 +83,7 @@ export default function HomeScreen() {
       .select(`
         *,
         profiles:user_id (
-          id, username, full_name, avatar_url, bio, created_at
+          id, username, full_name, avatar_url, bio, created_at, is_verified, verification_type
         )
       `)
       .order('created_at', { ascending: false })
@@ -215,8 +216,8 @@ export default function HomeScreen() {
             username={item.profiles?.username}
             onPress={() => item.profiles && router.push(`/user/${item.profiles.id}`)}
           />
-          <Pressable onPress={() => item.profiles && router.push(`/user/${item.profiles.id}`)}>
-            <Text style={styles.postUsername}>{item.profiles?.username ?? 'unknown'}</Text>
+          <Pressable onPress={() => item.profiles && router.push(`/user/${item.profiles.id}`)} style={styles.postUsernameRow}>
+            <UsernameWithBadge username={item.profiles?.username ?? 'unknown'} isVerified={item.profiles?.is_verified} fontSize={FontSizes.md} />
           </Pressable>
         </View>
         <MoreHorizontal color={Colors.text} size={20} />
@@ -256,7 +257,7 @@ export default function HomeScreen() {
         )}
         {item.caption ? (
           <Text style={styles.captionText}>
-            <Text style={styles.captionUsername}>{item.profiles?.username}</Text>{' '}
+            <Text style={styles.captionUsername}>{item.profiles?.username}{item.profiles?.is_verified ? ' ✓' : ''}</Text>{' '}
             {item.caption}
           </Text>
         ) : null}
