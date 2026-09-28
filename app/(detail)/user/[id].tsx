@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { ArrowLeft, Grid, Heart, Bookmark } from 'lucide-react-native';
+import { ArrowLeft, Grid, Heart, Bookmark, MessageCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
@@ -92,6 +92,62 @@ export default function UserProfileScreen() {
     }
   };
 
+  const canMessage = (): boolean => {
+    if (!userProfile || !myProfile) return false;
+    const perm = userProfile.dm_permission ?? 'everyone';
+    if (perm === 'nobody') return false;
+    if (perm === 'followers') return isFollowing;
+    return true;
+  };
+
+  const handleMessage = async () => {
+    if (!myProfile || !userProfile) return;
+    if (!canMessage()) {
+      Alert.alert(
+        'Cannot send message',
+        userProfile.dm_permission === 'nobody'
+          ? `${userProfile.username} doesn't allow anyone to message them.`
+          : `${userProfile.username} only accepts messages from their followers.`
+      );
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from('conversation_members')
+      .select('conversation_id')
+      .eq('user_id', myProfile.id)
+      .in('conversation_id', (
+        await supabase
+          .from('conversation_members')
+          .select('conversation_id')
+          .eq('user_id', userProfile.id)
+      ).data?.map((m: any) => m.conversation_id) || []
+      ).maybeSingle();
+
+    if (existing) {
+      router.push(`/chat/${existing.conversation_id}`);
+      return;
+    }
+
+    const { data: conversation, error } = await supabase
+      .from('conversations')
+      .insert({ created_by: myProfile.id })
+      .select('*')
+      .maybeSingle();
+
+    if (error || !conversation) {
+      Alert.alert('Error', 'Could not start conversation. Please try again.');
+      return;
+    }
+
+    await supabase.from('conversation_members').insert([
+      { conversation_id: conversation.id, user_id: myProfile.id },
+      { conversation_id: conversation.id, user_id: userProfile.id },
+    ]);
+
+    router.push(`/chat/${conversation.id}`);
+  };
+
   if (!userProfile) {
     return (
       <View style={styles.loadingContainer}>
@@ -145,14 +201,25 @@ export default function UserProfileScreen() {
       </View>
 
       {!isOwnProfile && (
-        <Pressable
-          style={[styles.followButton, isFollowing && styles.followingButton]}
-          onPress={handleFollow}
-        >
-          <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
-            {isFollowing ? 'Following' : 'Follow'}
-          </Text>
-        </Pressable>
+        <View style={styles.actionRow}>
+          <Pressable
+            style={[styles.followButton, isFollowing && styles.followingButton, styles.flex1]}
+            onPress={handleFollow}
+          >
+            <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+              {isFollowing ? 'Following' : 'Follow'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.messageButton, styles.flex1, !canMessage() && styles.messageButtonDisabled]}
+            onPress={handleMessage}
+          >
+            <MessageCircle color={canMessage() ? Colors.text : Colors.textLight} size={18} strokeWidth={2} />
+            <Text style={[styles.messageButtonText, !canMessage() && styles.messageButtonTextDisabled]}>
+              Message
+            </Text>
+          </Pressable>
+        </View>
       )}
 
       {isOwnProfile && (
@@ -266,9 +333,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 20,
   },
-  followButton: {
+  actionRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
+  },
+  flex1: {
+    flex: 1,
+  },
+  followButton: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.sm + 2,
@@ -286,6 +360,28 @@ const styles = StyleSheet.create({
   },
   followingButtonText: {
     color: Colors.text,
+  },
+  messageButton: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.sm + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  messageButtonDisabled: {
+    opacity: 0.5,
+  },
+  messageButtonText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSizes.md,
+    color: Colors.text,
+  },
+  messageButtonTextDisabled: {
+    color: Colors.textLight,
   },
   tabsRow: {
     flexDirection: 'row',

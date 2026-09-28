@@ -7,6 +7,7 @@ export interface Profile {
   created_at: string;
   is_verified?: boolean;
   verification_type?: 'none' | 'lifetime' | 'admin';
+  dm_permission?: 'everyone' | 'followers' | 'nobody';
 }
 
 export interface Post {

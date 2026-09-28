@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -32,6 +32,7 @@ import {
   Heart,
   BadgeCheck,
   KeyRound,
+  MessageCircle,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
   const [activityStatus, setActivityStatus] = useState(true);
   const [storySharing, setStorySharing] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [dmPermission, setDmPermission] = useState<'everyone' | 'followers' | 'nobody'>('everyone');
   const [verifyCode, setVerifyCode] = useState('');
   const [adminToken, setAdminToken] = useState('');
   const [verifying, setVerifying] = useState(false);
@@ -65,6 +67,18 @@ export default function SettingsScreen() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const loadPrivacySettings = async () => {
+    if (!profile) return;
+    setDmPermission(profile.dm_permission ?? 'everyone');
+  };
+
+  const updateDmPermission = async (value: 'everyone' | 'followers' | 'nobody') => {
+    setDmPermission(value);
+    if (!profile) return;
+    await supabase.from('profiles').update({ dm_permission: value }).eq('id', profile.id);
+    await refreshProfile();
+  };
 
   const openEditProfile = () => {
     setEditName(profile?.full_name ?? '');
@@ -356,6 +370,7 @@ export default function SettingsScreen() {
   }
 
   if (section === 'privacy') {
+    useEffect(() => { loadPrivacySettings(); }, [profile?.id]);
     return (
       <View style={styles.container}>
         <View style={styles.subHeader}>
@@ -367,6 +382,27 @@ export default function SettingsScreen() {
           <Text style={styles.sectionHeading}>Account Privacy</Text>
           <View style={styles.card}>
             {renderToggle(<Lock color={Colors.text} size={20} />, 'Private Account', privateAccount, setPrivateAccount)}
+          </View>
+          <Text style={styles.sectionHeading}>Direct Messages</Text>
+          <View style={styles.card}>
+            <View style={styles.dmHeader}>
+              <View style={styles.navIcon}><MessageCircle color={Colors.text} size={20} /></View>
+              <Text style={styles.navLabel}>Who can message you</Text>
+            </View>
+            {(['everyone', 'followers', 'nobody'] as const).map((option) => (
+              <Pressable
+                key={option}
+                style={styles.dmOptionRow}
+                onPress={() => updateDmPermission(option)}
+              >
+                <Text style={styles.dmOptionLabel}>
+                  {option === 'everyone' ? 'Everyone' : option === 'followers' ? 'Followers only' : 'No one'}
+                </Text>
+                <View style={[styles.radioOuter, dmPermission === option && styles.radioOuterSelected]}>
+                  {dmPermission === option && <View style={styles.radioInner} />}
+                </View>
+              </Pressable>
+            ))}
           </View>
           <Text style={styles.sectionHeading}>Visibility</Text>
           <View style={styles.card}>
@@ -525,4 +561,10 @@ const styles = StyleSheet.create({
   verifyInfoText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.text, flex: 1 },
   verifyButton: { backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingVertical: Spacing.md + 2, alignItems: 'center', marginTop: Spacing.md, marginBottom: Spacing.sm, marginHorizontal: Spacing.md },
   verifyButtonText: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.white },
+  dmHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth || 0.5, borderBottomColor: Colors.border },
+  dmOptionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth || 0.5, borderBottomColor: Colors.border },
+  dmOptionLabel: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.text },
+  radioOuter: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  radioOuterSelected: { borderColor: Colors.primary },
+  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
 });
