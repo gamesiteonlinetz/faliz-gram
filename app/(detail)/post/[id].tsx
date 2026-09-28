@@ -11,10 +11,11 @@ import {
   Platform,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { Heart, MessageCircle, Send, ArrowLeft } from 'lucide-react-native';
+import { Heart, MessageCircle, Send, ArrowLeft, Bookmark } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
+import { UsernameWithBadge } from '@/components/VerifiedBadge';
 import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
 import type { PostWithProfile, Comment, Profile } from '@/types/database';
 
@@ -37,7 +38,7 @@ export default function PostDetailScreen() {
       .select(`
         *,
         profiles:user_id (
-          id, username, full_name, avatar_url, bio, created_at
+          id, username, full_name, avatar_url, bio, created_at, is_verified, verification_type
         )
       `)
       .eq('id', id)
@@ -69,7 +70,7 @@ export default function PostDetailScreen() {
       .select(`
         *,
         profiles:user_id (
-          id, username, full_name, avatar_url, bio, created_at
+          id, username, full_name, avatar_url, bio, created_at, is_verified, verification_type
         )
       `)
       .eq('post_id', id)
@@ -147,6 +148,9 @@ export default function PostDetailScreen() {
         </Text>
         <Text style={styles.commentTime}>{formatTime(item.created_at)}</Text>
       </View>
+      <Pressable hitSlop={8}>
+        <Heart color={Colors.textLight} size={14} strokeWidth={2} />
+      </Pressable>
     </View>
   );
 
@@ -161,11 +165,23 @@ export default function PostDetailScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
           <ArrowLeft color={Colors.text} size={24} strokeWidth={2} />
         </Pressable>
-        <Pressable onPress={() => post.profiles && router.push(`/user/${post.profiles.id}`)}>
-          <Text style={styles.headerUsername}>{post.profiles?.username ?? 'Post'}</Text>
+        <Pressable
+          style={styles.headerUser}
+          onPress={() => post.profiles && router.push(`/user/${post.profiles.id}`)}
+        >
+          <Avatar
+            uri={post.profiles?.avatar_url ?? null}
+            size={32}
+            username={post.profiles?.username}
+          />
+          <UsernameWithBadge
+            username={post.profiles?.username ?? 'Post'}
+            isVerified={post.profiles?.is_verified}
+            fontSize={FontSizes.md}
+          />
         </Pressable>
       </View>
 
@@ -175,18 +191,9 @@ export default function PostDetailScreen() {
         renderItem={renderComment}
         ListHeaderComponent={
           <View style={styles.postSection}>
-            <View style={styles.postHeader}>
-              <Avatar
-                uri={post.profiles?.avatar_url ?? null}
-                size={36}
-                username={post.profiles?.username}
-                onPress={() => post.profiles && router.push(`/user/${post.profiles.id}`)}
-              />
-              <Text style={styles.postUsername}>{post.profiles?.username}</Text>
-            </View>
             <Image source={{ uri: post.image_url }} style={styles.postImage} resizeMode="cover" />
             <View style={styles.postActions}>
-              <Pressable onPress={handleLike}>
+              <Pressable onPress={handleLike} hitSlop={8}>
                 <Heart
                   color={post.has_liked ? Colors.error : Colors.text}
                   size={26}
@@ -194,8 +201,16 @@ export default function PostDetailScreen() {
                   strokeWidth={post.has_liked ? 0 : 2}
                 />
               </Pressable>
-              <MessageCircle color={Colors.text} size={26} strokeWidth={2} />
-              <Send color={Colors.text} size={26} strokeWidth={2} />
+              <Pressable hitSlop={8}>
+                <MessageCircle color={Colors.text} size={26} strokeWidth={2} />
+              </Pressable>
+              <Pressable hitSlop={8}>
+                <Send color={Colors.text} size={26} strokeWidth={2} />
+              </Pressable>
+              <View style={styles.actionSpacer} />
+              <Pressable hitSlop={8}>
+                <Bookmark color={Colors.text} size={26} strokeWidth={2} />
+              </Pressable>
             </View>
             {post.like_count > 0 && (
               <Text style={styles.likesText}>
@@ -228,7 +243,7 @@ export default function PostDetailScreen() {
             value={commentText}
             onChangeText={setCommentText}
           />
-          <Pressable onPress={handleSubmitComment} disabled={!commentText.trim()}>
+          <Pressable onPress={handleSubmitComment} disabled={!commentText.trim()} hitSlop={8}>
             <Text style={[styles.commentSubmit, !commentText.trim() && styles.commentSubmitDisabled]}>
               Post
             </Text>
@@ -263,36 +278,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  headerUsername: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: FontSizes.lg,
-    color: Colors.text,
+  headerUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  flex: 1,
   },
   postSection: {
     paddingBottom: Spacing.md,
   },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.sm,
-  },
-  postUsername: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: FontSizes.md,
-    color: Colors.text,
-  },
   postImage: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceElevated,
   },
   postActions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.md,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
+  },
+  actionSpacer: {
+    flex: 1,
   },
   likesText: {
     fontFamily: 'Inter-SemiBold',
@@ -307,6 +315,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
     paddingHorizontal: Spacing.sm,
     marginBottom: Spacing.xs,
+    lineHeight: 20,
   },
   captionUsername: {
     fontFamily: 'Inter-SemiBold',
@@ -315,15 +324,16 @@ const styles = StyleSheet.create({
   timestamp: {
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.xs,
-    color: Colors.textSecondary,
+    color: Colors.textLight,
     paddingHorizontal: Spacing.sm,
     textTransform: 'uppercase',
   },
   commentRow: {
     flexDirection: 'row',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
     gap: Spacing.md,
+    alignItems: 'flex-start',
   },
   commentContent: {
     flex: 1,
@@ -332,6 +342,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.md,
     color: Colors.text,
+    lineHeight: 19,
   },
   commentUsername: {
     fontFamily: 'Inter-SemiBold',
@@ -375,8 +386,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.round,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    backgroundColor: Colors.surface,
   },
   commentSubmit: {
     fontFamily: 'Inter-SemiBold',

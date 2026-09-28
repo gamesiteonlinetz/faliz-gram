@@ -10,10 +10,11 @@ import {
   Alert,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { ArrowLeft, Grid, Heart } from 'lucide-react-native';
+import { ArrowLeft, Grid, Heart, Bookmark } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
+import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
 import type { Profile, Post } from '@/types/database';
 
@@ -110,14 +111,18 @@ export default function UserProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
           <ArrowLeft color={Colors.text} size={24} strokeWidth={2} />
         </Pressable>
-        <Text style={styles.headerUsername}>{userProfile.username}</Text>
+        <View style={styles.headerUsernameRow}>
+          <Text style={styles.headerUsername}>{userProfile.username}</Text>
+          {userProfile.is_verified && <VerifiedBadge size={16} />}
+        </View>
+        <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.profileInfo}>
-        <Avatar uri={userProfile.avatar_url} size={80} username={userProfile.username} />
+        <Avatar uri={userProfile.avatar_url} size={86} username={userProfile.username} />
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{posts.length}</Text>
@@ -160,6 +165,9 @@ export default function UserProfileScreen() {
         <View style={styles.tabActive}>
           <Grid color={Colors.text} size={22} strokeWidth={2} />
         </View>
+        <View style={styles.tabInactive}>
+          <Bookmark color={Colors.textSecondary} size={22} strokeWidth={2} />
+        </View>
       </View>
 
       <FlatList
@@ -167,7 +175,7 @@ export default function UserProfileScreen() {
         keyExtractor={item => item.id}
         renderItem={renderPost}
         numColumns={3}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No posts yet</Text>
@@ -197,22 +205,30 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  headerUsernameRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   headerUsername: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.xl,
     color: Colors.text,
+  },
+  headerSpacer: {
+    width: 24,
   },
   profileInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.lg,
     gap: Spacing.xl,
   },
   statsRow: {
@@ -224,7 +240,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statNumber: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'Inter-Bold',
     fontSize: FontSizes.xl,
     color: Colors.text,
   },
@@ -232,6 +248,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
+    marginTop: 2,
   },
   bioSection: {
     paddingHorizontal: Spacing.lg,
@@ -247,19 +264,20 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     color: Colors.text,
     marginTop: 2,
+    lineHeight: 20,
   },
   followButton: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.sm + 2,
     alignItems: 'center',
   },
   followingButton: {
     backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.borderStrong,
   },
   followButtonText: {
     fontFamily: 'Inter-SemiBold',
@@ -277,24 +295,32 @@ const styles = StyleSheet.create({
   tabActive: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
     borderBottomWidth: 2,
     borderBottomColor: Colors.text,
   },
+  tabInactive: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.sm + 2,
+  },
   grid: {
-    paddingHorizontal: 1,
+    paddingHorizontal: 2,
   },
   gridEmpty: {
     flex: 1,
   },
   gridItem: {
-    margin: 1,
+    margin: 2,
     flex: 1 / 3,
     aspectRatio: 1,
+    borderRadius: Radius.sm,
+    overflow: 'hidden' as any,
   },
   gridImage: {
     width: '100%',
     height: '100%',
+    backgroundColor: Colors.surfaceElevated,
   },
   emptyContainer: {
     flex: 1,

@@ -6,16 +6,13 @@ import {
   Pressable,
   Image,
   Dimensions,
-  FlatList,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { ArrowLeft, X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
-import { Colors, Spacing, FontSizes } from '@/lib/theme';
+import { Avatar } from '@/components/Avatar';
+import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
 import type { Story, Profile } from '@/types/database';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 export default function StoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -70,7 +67,7 @@ export default function StoryScreen() {
   if (stories.length === 0) {
     return (
       <View style={styles.container}>
-        <Pressable style={styles.closeButton} onPress={() => router.back()}>
+        <Pressable style={styles.closeButton} onPress={() => router.back()} hitSlop={8}>
           <X color={Colors.white} size={28} strokeWidth={2} />
         </Pressable>
         <View style={styles.emptyContainer}>
@@ -101,15 +98,18 @@ export default function StoryScreen() {
 
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
             <ArrowLeft color={Colors.white} size={24} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.headerUsername}>{profile?.username ?? 'Story'}</Text>
-          <Text style={styles.headerTime}>
-            {formatTime(currentStory.created_at)}
-          </Text>
+          <Avatar uri={profile?.avatar_url ?? null} size={32} username={profile?.username} />
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerUsername}>{profile?.username ?? 'Story'}</Text>
+            <Text style={styles.headerTime}>
+              {formatTime(currentStory.created_at)}
+            </Text>
+          </View>
         </View>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
           <X color={Colors.white} size={24} strokeWidth={2} />
         </Pressable>
       </View>
@@ -139,24 +139,25 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject as any,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.15)',
   },
   progressContainer: {
     flexDirection: 'row',
     gap: 4,
     paddingHorizontal: Spacing.sm,
-    paddingTop: Spacing.xl,
+    paddingTop: Spacing.xl + 4,
   },
   progressTrack: {
     flex: 1,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 1,
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 2,
     overflow: 'hidden' as any,
   },
   progressBar: {
     height: '100%',
     backgroundColor: Colors.white,
+    borderRadius: 2,
   },
   header: {
     flexDirection: 'row',
@@ -170,6 +171,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
+  headerInfo: {
+    gap: 1,
+  },
   headerUsername: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSizes.md,
@@ -177,7 +181,7 @@ const styles = StyleSheet.create({
   },
   headerTime: {
     fontFamily: 'Inter-Regular',
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: 'rgba(255,255,255,0.7)',
   },
   tapZone: {

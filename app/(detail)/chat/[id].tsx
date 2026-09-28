@@ -37,12 +37,51 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'web' ? undefined : 'padding'}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}><ArrowLeft color={Colors.text} size={24} /></Pressable>
-        <View style={styles.headerPerson}>{other && <Avatar uri={other.avatar_url} size={32} username={other.username} />}<Text style={styles.title}>{other?.username || 'Chat'}</Text></View>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <ArrowLeft color={Colors.text} size={24} strokeWidth={2} />
+        </Pressable>
+        <View style={styles.headerPerson}>
+          {other && <Avatar uri={other.avatar_url} size={34} username={other.username} />}
+          <Text style={styles.title}>{other?.username || 'Chat'}</Text>
+        </View>
         <View style={styles.spacer} />
       </View>
-      <FlatList data={messages} keyExtractor={item => item.id} renderItem={({ item }) => <View style={[styles.message, item.sender_id === profile?.id ? styles.myMessage : styles.theirMessage]}><Text style={[styles.messageText, item.sender_id === profile?.id && styles.myMessageText]}>{item.body}</Text></View>} contentContainerStyle={styles.messages} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>Start the conversation</Text><Text style={styles.emptyText}>Send a message to {other?.username || 'this person'}.</Text></View>} />
-      <View style={styles.composer}><TextInput value={body} onChangeText={setBody} placeholder="Message..." placeholderTextColor={Colors.textSecondary} style={styles.composerInput} multiline /><Pressable onPress={sendMessage} disabled={!body.trim()}><Send color={body.trim() ? Colors.primary : Colors.textLight} size={24} /></Pressable></View>
+      <FlatList
+        data={messages}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <View style={[styles.message, item.sender_id === profile?.id ? styles.myMessage : styles.theirMessage]}>
+            <Text style={[styles.messageText, item.sender_id === profile?.id && styles.myMessageText]}>
+              {item.body}
+            </Text>
+          </View>
+        )}
+        contentContainerStyle={styles.messages}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>Start the conversation</Text>
+            <Text style={styles.emptyText}>Send a message to {other?.username || 'this person'}.</Text>
+          </View>
+        }
+      />
+      <View style={styles.composer}>
+        <TextInput
+          value={body}
+          onChangeText={setBody}
+          placeholder="Message..."
+          placeholderTextColor={Colors.textSecondary}
+          style={styles.composerInput}
+          multiline
+        />
+        <Pressable
+          style={[styles.sendButton, !body.trim() && styles.sendButtonDisabled]}
+          onPress={sendMessage}
+          disabled={!body.trim()}
+          hitSlop={8}
+        >
+          <Send color={body.trim() ? Colors.white : Colors.textLight} size={20} strokeWidth={2} />
+        </Pressable>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -54,14 +93,16 @@ const styles = StyleSheet.create({
   title: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.lg, color: Colors.text },
   spacer: { width: 24 },
   messages: { padding: Spacing.lg, gap: Spacing.sm, flexGrow: 1, justifyContent: 'flex-end' },
-  message: { maxWidth: '78%', borderRadius: 18, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
-  myMessage: { alignSelf: 'flex-end', backgroundColor: Colors.primary },
-  theirMessage: { alignSelf: 'flex-start', backgroundColor: Colors.surface },
+  message: { maxWidth: '78%', borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm + 2, },
+  myMessage: { alignSelf: 'flex-end', backgroundColor: Colors.primary, borderBottomRightRadius: 6, },
+  theirMessage: { alignSelf: 'flex-start', backgroundColor: Colors.surface, borderBottomLeftRadius: 6, },
   messageText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.text, lineHeight: 20 },
   myMessageText: { color: Colors.white },
   empty: { alignItems: 'center', padding: Spacing.xxl },
   emptyTitle: { fontFamily: 'Inter-Bold', fontSize: FontSizes.xl, color: Colors.text },
-  emptyText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary, marginTop: Spacing.sm },
+  emptyText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary, marginTop: Spacing.sm, textAlign: 'center' },
   composer: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
-  composerInput: { flex: 1, maxHeight: 100, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.round, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, color: Colors.text, fontFamily: 'Inter-Regular', fontSize: FontSizes.md },
+  composerInput: { flex: 1, maxHeight: 100, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm + 2, color: Colors.text, fontFamily: 'Inter-Regular', fontSize: FontSizes.md, backgroundColor: Colors.surface },
+  sendButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  sendButtonDisabled: { backgroundColor: Colors.border },
 });
