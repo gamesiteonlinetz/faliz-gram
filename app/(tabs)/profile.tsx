@@ -13,11 +13,12 @@ import {
   Alert,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Settings, Grid, Heart, LogOut, Bookmark, Menu } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
-import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
+import { Colors, Spacing, FontSizes, Radius, Shadows } from '@/lib/theme';
 import type { Post, SavedPost } from '@/types/database';
 
 export default function ProfileScreen() {
@@ -125,14 +126,14 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <Text style={styles.headerUsername}>{profile.username}</Text>
         <View style={styles.headerActions}>
-          <Pressable onPress={() => router.push('/settings')}>
+          <Pressable onPress={() => router.push('/settings')} hitSlop={8}>
             <Menu color={Colors.text} size={26} strokeWidth={2} />
           </Pressable>
         </View>
       </View>
 
       <View style={styles.profileInfo}>
-        <Avatar uri={profile.avatar_url} size={80} username={profile.username} />
+        <Avatar uri={profile.avatar_url} size={86} username={profile.username} />
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{posts.length}</Text>
@@ -172,7 +173,7 @@ export default function ProfileScreen() {
         keyExtractor={item => item.id}
         renderItem={renderPost}
         numColumns={3}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>{profileTab === 'posts' ? 'No posts yet' : 'No saved posts'}</Text>
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.lg,
     gap: Spacing.xl,
   },
   statsRow: {
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statNumber: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'Inter-Bold',
     fontSize: FontSizes.xl,
     color: Colors.text,
   },
@@ -290,6 +291,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
+    marginTop: 2,
   },
   bioSection: {
     paddingHorizontal: Spacing.lg,
@@ -305,14 +307,15 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     color: Colors.text,
     marginTop: 2,
+    lineHeight: 20,
   },
   editButton: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
+    borderColor: Colors.borderStrong,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.sm + 2,
     alignItems: 'center',
   },
   editButtonText: {
@@ -328,29 +331,32 @@ const styles = StyleSheet.create({
   tabItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
   },
   tabActive: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
     borderBottomWidth: 2,
     borderBottomColor: Colors.text,
   },
   grid: {
-    paddingHorizontal: 1,
+    paddingHorizontal: 2,
   },
   gridEmpty: {
     flex: 1,
   },
   gridItem: {
-    margin: 1,
+    margin: 2,
     flex: 1 / 3,
     aspectRatio: 1,
+    borderRadius: Radius.sm,
+    overflow: 'hidden' as any,
   },
   gridImage: {
     width: '100%',
     height: '100%',
+    backgroundColor: Colors.surfaceElevated,
   },
   emptyContainer: {
     flex: 1,
@@ -422,10 +428,11 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     color: Colors.text,
+    backgroundColor: Colors.surface,
   },
   modalBioInput: {
     minHeight: 80,
@@ -435,5 +442,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     marginTop: Spacing.sm,
+    borderWidth: 2,
+    borderColor: Colors.border,
   },
 });

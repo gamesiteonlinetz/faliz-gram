@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Image, Pressable, RefreshControl } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, MessageCircle, Send, MoreVertical, Music2, Plus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
-import { Colors, Spacing, FontSizes } from '@/lib/theme';
+import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
 import type { Profile, Reel } from '@/types/database';
 
 interface ReelWithProfile extends Reel {
@@ -76,10 +77,15 @@ export default function ReelsScreen() {
   const renderReel = ({ item }: { item: ReelWithProfile }) => (
     <View style={styles.reel}>
       <Image source={{ uri: item.thumbnail_url || fallbackThumbnails[0] }} style={styles.media} resizeMode="cover" />
-      <View style={styles.scrim} />
+      <LinearGradient
+        colors={['rgba(0,0,0,0.15)', 'transparent', 'rgba(0,0,0,0.5)']}
+        style={styles.scrim}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+      />
       <View style={styles.topBar}>
         <Text style={styles.title}>Reels</Text>
-        <Pressable onPress={() => router.push('/(tabs)/create')}>
+        <Pressable onPress={() => router.push('/(tabs)/create')} hitSlop={8}>
           <Plus color={Colors.white} size={26} />
         </Pressable>
       </View>
@@ -95,24 +101,24 @@ export default function ReelsScreen() {
       <View style={styles.captionBlock}>
         <Text style={styles.caption} numberOfLines={2}>{item.caption || 'A new moment on Faliz Gram'}</Text>
         <View style={styles.audioRow}>
-          <Music2 color={Colors.white} size={14} />
+          <Music2 color={Colors.white} size={13} />
           <Text style={styles.audioText}>{item.audio_label}</Text>
         </View>
       </View>
       <View style={styles.actions}>
-        <Pressable style={styles.action} onPress={() => toggleLike(item)}>
-          <Heart color={Colors.white} size={30} fill={item.has_liked ? Colors.error : 'none'} strokeWidth={item.has_liked ? 0 : 2} />
+        <Pressable style={styles.action} onPress={() => toggleLike(item)} hitSlop={8}>
+          <Heart color={Colors.white} size={28} fill={item.has_liked ? Colors.error : 'none'} strokeWidth={item.has_liked ? 0 : 2} />
           <Text style={styles.actionText}>{item.like_count}</Text>
         </Pressable>
-        <Pressable style={styles.action}>
-          <MessageCircle color={Colors.white} size={30} />
+        <Pressable style={styles.action} hitSlop={8}>
+          <MessageCircle color={Colors.white} size={28} strokeWidth={2} />
           <Text style={styles.actionText}>Comment</Text>
         </Pressable>
-        <Pressable style={styles.action}>
-          <Send color={Colors.white} size={30} />
+        <Pressable style={styles.action} hitSlop={8}>
+          <Send color={Colors.white} size={28} strokeWidth={2} />
           <Text style={styles.actionText}>Share</Text>
         </Pressable>
-        <MoreVertical color={Colors.white} size={28} />
+        <MoreVertical color={Colors.white} size={26} />
       </View>
     </View>
   );
@@ -134,7 +140,7 @@ export default function ReelsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.white} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <View style={styles.emptyIcon}><Music2 color={Colors.primary} size={30} /></View>
+            <View style={styles.emptyIcon}><Music2 color={Colors.primary} size={32} /></View>
             <Text style={styles.emptyTitle}>Your Reels feed</Text>
             <Text style={styles.emptyText}>Create your first short video and it will appear here.</Text>
             <Pressable style={styles.emptyButton} onPress={() => router.push('/(tabs)/create')}>
@@ -151,24 +157,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.black },
   reel: { height: 650, backgroundColor: Colors.black, position: 'relative', justifyContent: 'flex-end' },
   media: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
+  scrim: { ...StyleSheet.absoluteFillObject },
   topBar: { position: 'absolute', top: Spacing.lg, left: Spacing.lg, right: Spacing.lg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { color: Colors.white, fontFamily: 'Inter-Bold', fontSize: FontSizes.xxl },
   creatorRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
   username: { color: Colors.white, fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md },
-  followButton: { borderWidth: 1, borderColor: Colors.white, borderRadius: 5, paddingHorizontal: Spacing.md, paddingVertical: 4 },
+  followButton: { borderWidth: 1, borderColor: Colors.white, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: 4 },
   followText: { color: Colors.white, fontFamily: 'Inter-SemiBold', fontSize: FontSizes.sm },
   captionBlock: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, paddingRight: 92 },
   caption: { color: Colors.white, fontFamily: 'Inter-Regular', fontSize: FontSizes.md, lineHeight: 21 },
   audioRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.sm },
-  audioText: { color: Colors.white, fontFamily: 'Inter-Regular', fontSize: FontSizes.sm },
+  audioText: { color: 'rgba(255,255,255,0.85)', fontFamily: 'Inter-Regular', fontSize: FontSizes.sm },
   actions: { position: 'absolute', right: Spacing.lg, bottom: 70, alignItems: 'center', gap: Spacing.lg },
   action: { alignItems: 'center', gap: 4 },
   actionText: { color: Colors.white, fontFamily: 'Inter-Regular', fontSize: FontSizes.xs },
   empty: { flex: 1, minHeight: 600, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center', padding: Spacing.xxl },
-  emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#EAF5FF', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
   emptyTitle: { fontFamily: 'Inter-Bold', fontSize: FontSizes.xxl, color: Colors.text },
   emptyText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm, lineHeight: 21 },
-  emptyButton: { backgroundColor: Colors.primary, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, borderRadius: 8, marginTop: Spacing.xl },
+  emptyButton: { backgroundColor: Colors.primary, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, borderRadius: Radius.lg, marginTop: Spacing.xl },
   emptyButtonText: { color: Colors.white, fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md },
 });

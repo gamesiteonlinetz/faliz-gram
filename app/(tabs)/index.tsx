@@ -13,12 +13,13 @@ import {
   Platform,
 } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
 import { UsernameWithBadge } from '@/components/VerifiedBadge';
-import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
+import { Colors, Spacing, FontSizes, Radius, Shadows } from '@/lib/theme';
 import type { PostWithProfile, Story, Profile } from '@/types/database';
 
 export default function HomeScreen() {
@@ -212,7 +213,7 @@ export default function HomeScreen() {
         <View style={styles.postHeaderLeft}>
           <Avatar
             uri={item.profiles?.avatar_url ?? null}
-            size={32}
+            size={34}
             username={item.profiles?.username}
             onPress={() => item.profiles && router.push(`/user/${item.profiles.id}`)}
           />
@@ -220,7 +221,7 @@ export default function HomeScreen() {
             <UsernameWithBadge username={item.profiles?.username ?? 'unknown'} isVerified={item.profiles?.is_verified} fontSize={FontSizes.md} />
           </Pressable>
         </View>
-        <MoreHorizontal color={Colors.text} size={20} />
+        <MoreHorizontal color={Colors.textSecondary} size={20} />
       </View>
 
       <Image
@@ -231,7 +232,7 @@ export default function HomeScreen() {
 
       <View style={styles.postActions}>
         <View style={styles.actionRow}>
-          <Pressable onPress={() => handleLike(item)}>
+          <Pressable onPress={() => handleLike(item)} hitSlop={8}>
             <Heart
               color={item.has_liked ? Colors.error : Colors.text}
               size={26}
@@ -239,12 +240,12 @@ export default function HomeScreen() {
               strokeWidth={item.has_liked ? 0 : 2}
             />
           </Pressable>
-          <Pressable onPress={() => setCommentingPostId(commentingPostId === item.id ? null : item.id)}>
+          <Pressable onPress={() => setCommentingPostId(commentingPostId === item.id ? null : item.id)} hitSlop={8}>
             <MessageCircle color={Colors.text} size={26} strokeWidth={2} />
           </Pressable>
           <Send color={Colors.text} size={26} strokeWidth={2} />
         </View>
-        <Pressable onPress={() => handleSave(item)}>
+        <Pressable onPress={() => handleSave(item)} hitSlop={8}>
           <Bookmark color={item.has_saved ? Colors.text : Colors.text} size={26} fill={item.has_saved ? Colors.text : 'none'} strokeWidth={2} />
         </Pressable>
       </View>
@@ -285,6 +286,7 @@ export default function HomeScreen() {
             <Pressable
               onPress={() => handleSubmitComment(item.id, item.user_id)}
               disabled={!commentText.trim()}
+              hitSlop={8}
             >
               <Text style={[styles.commentSubmit, !commentText.trim() && styles.commentSubmitDisabled]}>
                 Post
@@ -299,8 +301,15 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerLogo}>Faliz Gram</Text>
-        <Pressable onPress={() => router.push('/messages')}>
+        <LinearGradient
+          colors={[Colors.gradientStart, Colors.gradientEnd]}
+          style={styles.headerLogoGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <Text style={styles.headerLogo}>Faliz Gram</Text>
+        </LinearGradient>
+        <Pressable onPress={() => router.push('/messages')} hitSlop={8}>
           <Send color={Colors.text} size={26} strokeWidth={2} />
         </Pressable>
       </View>
@@ -308,7 +317,7 @@ export default function HomeScreen() {
         data={posts}
         keyExtractor={item => item.id}
         renderItem={renderPost}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         ListHeaderComponent={
           stories.length > 0 ? (
             <ScrollView
@@ -346,10 +355,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  headerLogoGradient: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.md,
+  },
   headerLogo: {
     fontFamily: 'Inter-Bold',
     fontSize: FontSizes.xxl,
-    color: Colors.text,
+    color: Colors.white,
     letterSpacing: -0.5,
   },
   storiesBar: {
@@ -372,7 +386,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   postContainer: {
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   postHeader: {
     flexDirection: 'row',
@@ -399,7 +413,7 @@ const styles = StyleSheet.create({
   postImage: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceElevated,
   },
   postActions: {
     flexDirection: 'row',
@@ -425,6 +439,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.md,
     color: Colors.text,
+    lineHeight: 20,
     marginBottom: Spacing.xs,
   },
   captionUsername: {
@@ -440,7 +455,7 @@ const styles = StyleSheet.create({
   timestamp: {
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.xs,
-    color: Colors.textSecondary,
+    color: Colors.textLight,
     textTransform: 'uppercase',
   },
   commentInputContainer: {

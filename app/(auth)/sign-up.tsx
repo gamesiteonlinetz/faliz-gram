@@ -13,7 +13,7 @@ import {
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
-import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
+import { Colors, Spacing, FontSizes, Radius, Shadows } from '@/lib/theme';
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');
@@ -62,81 +62,103 @@ export default function SignUpScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'web' ? undefined : 'padding'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <LinearGradient
-            colors={[Colors.gradientStart, Colors.gradientEnd]}
-            style={styles.logoGradient}
-          >
-            <Text style={styles.logoText}>Faliz Gram</Text>
-          </LinearGradient>
-          <Text style={styles.tagline}>Share your moments with the world</Text>
-        </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[Colors.gradientStart, Colors.gradientEnd, Colors.primary]}
+        style={styles.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.logoContainer}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.05)']}
+              style={styles.logoGlow}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.logoText}>Faliz Gram</Text>
+            </LinearGradient>
+            <Text style={styles.tagline}>Share your moments with the world</Text>
+          </View>
 
-        <View style={styles.form}>
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          <View style={styles.formCard}>
+            {error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Full Name"
-            placeholderTextColor={Colors.textSecondary}
-            value={fullName}
-            onChangeText={setFullName}
-            autoCapitalize="words"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            placeholderTextColor={Colors.textSecondary}
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={Colors.textSecondary}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoCorrect={false}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={Colors.textSecondary}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="Full Name"
+              placeholderTextColor={Colors.textSecondary}
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Username"
+              placeholderTextColor={Colors.textSecondary}
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor={Colors.textSecondary}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor={Colors.textSecondary}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSignUp}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Creating account...' : 'Sign Up'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleSignUp}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryDark]}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.buttonText}>
+                  {loading ? 'Creating account...' : 'Sign Up'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.linkContainer}
-            onPress={() => router.push('/(auth)/sign-in')}
-          >
-            <Text style={styles.linkText}>
-              Already have an account? <Text style={styles.linkHighlight}>Sign In</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <TouchableOpacity
+              style={styles.linkContainer}
+              onPress={() => router.push('/(auth)/sign-in')}
+            >
+              <Text style={styles.linkText}>
+                Already have an account? <Text style={styles.linkHighlight}>Sign In</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -145,43 +167,68 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+  },
+  keyboardView: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     padding: Spacing.xl,
   },
-  header: {
+  logoContainer: {
     alignItems: 'center',
     marginBottom: Spacing.xxl,
   },
-  logoGradient: {
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
-    borderRadius: Radius.xl,
+  logoGlow: {
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.xl,
+    borderRadius: Radius.xxl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   logoText: {
     fontFamily: 'Inter-Bold',
     fontSize: FontSizes.display,
     color: Colors.white,
-  letterSpacing: -1,
-  textAlign: 'center',
+    letterSpacing: -1,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.15)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   tagline: {
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.md,
-    color: Colors.textSecondary,
+    color: 'rgba(255,255,255,0.85)',
     marginTop: Spacing.sm,
   },
-  form: {
+  formCard: {
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xxl,
+    padding: Spacing.xl,
+    ...Shadows.large,
+  },
+  errorBox: {
+    backgroundColor: '#FEE',
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   errorText: {
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.sm,
     color: Colors.error,
-    marginBottom: Spacing.sm,
     textAlign: 'center',
   },
   input: {
@@ -189,7 +236,7 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     marginBottom: Spacing.sm,
@@ -197,11 +244,14 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   button: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
+    marginTop: Spacing.sm,
+    overflow: 'hidden',
+    ...Shadows.small,
+  },
+  buttonGradient: {
     paddingVertical: Spacing.md,
     alignItems: 'center',
-    marginTop: Spacing.sm,
   },
   buttonDisabled: {
     opacity: 0.6,

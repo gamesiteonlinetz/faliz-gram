@@ -73,9 +73,9 @@ export default function NotificationsScreen() {
   };
 
   const getIcon = (type: string) => {
-    if (type === 'like') return <Heart color={Colors.error} size={24} fill={Colors.error} />;
-    if (type === 'comment') return <MessageCircle color={Colors.primary} size={24} strokeWidth={2} />;
-    return <UserPlus color={Colors.primary} size={24} strokeWidth={2} />;
+    if (type === 'like') return <Heart color={Colors.error} size={22} fill={Colors.error} />;
+    if (type === 'comment') return <MessageCircle color={Colors.primary} size={22} strokeWidth={2} />;
+    return <UserPlus color={Colors.primary} size={22} strokeWidth={2} />;
   };
 
   const getMessage = (item: NotificationWithActor) => {
@@ -121,10 +121,12 @@ export default function NotificationsScreen() {
         data={notifications}
         keyExtractor={item => item.id}
         renderItem={renderItem}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Heart color={Colors.textLight} size={48} strokeWidth={1.5} />
+            <View style={styles.emptyIconCircle}>
+              <Heart color={Colors.textLight} size={36} strokeWidth={1.5} />
+            </View>
             <Text style={styles.emptyText}>Activity On Your Posts</Text>
             <Text style={styles.emptySubtext}>
               When someone likes or comments on your posts, you'll see it here.
@@ -156,7 +158,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
     gap: Spacing.md,
   },
   notificationContent: {
@@ -166,6 +168,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.md,
     color: Colors.text,
+    lineHeight: 19,
   },
   notificationUsername: {
     fontFamily: 'Inter-SemiBold',
@@ -182,11 +185,20 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xxl * 2,
     paddingHorizontal: Spacing.xl,
   },
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+  },
   emptyText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSizes.xl,
     color: Colors.text,
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
   },
   emptySubtext: {
     fontFamily: 'Inter-Regular',
@@ -194,5 +206,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: Spacing.xs,
     textAlign: 'center',
+    lineHeight: 20,
   },
 });

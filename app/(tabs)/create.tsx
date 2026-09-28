@@ -11,10 +11,11 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Music2, Sparkles, Wand2, Check } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
+import { Colors, Spacing, FontSizes, Radius, Shadows } from '@/lib/theme';
 
 const SAMPLE_IMAGES = [
   'https://images.pexels.com/photos/459225/pexels-photo-459225.jpeg?auto=compress&cs=tinysrgb&w=800',
@@ -124,13 +125,13 @@ export default function CreateScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
           <Text style={styles.cancelText}>Cancel</Text>
         </Pressable>
         <Text style={styles.headerTitle}>
           New {mode === 'post' ? 'Post' : mode === 'reel' ? 'Reel' : 'Story'}
         </Text>
-        <Pressable onPress={handlePost} disabled={posting || !hasMedia}>
+        <Pressable onPress={handlePost} disabled={posting || !hasMedia} hitSlop={8}>
           <Text style={[styles.postText, (posting || !hasMedia) && styles.postTextDisabled]}>
             {posting ? 'Sharing...' : 'Share'}
           </Text>
@@ -308,7 +309,10 @@ export default function CreateScreen() {
 
       {posting && (
         <View style={styles.overlay}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <View style={styles.overlayCard}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.overlayText}>Sharing...</Text>
+          </View>
         </View>
       )}
     </View>
@@ -323,17 +327,17 @@ const styles = StyleSheet.create({
   postText: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.primary },
   postTextDisabled: { opacity: 0.4 },
   modeTabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.border },
-  modeTab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center' },
+  modeTab: { flex: 1, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
   modeTabActive: { borderBottomWidth: 2, borderBottomColor: Colors.text },
   modeTabText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary },
   modeTabTextActive: { fontFamily: 'Inter-SemiBold', color: Colors.text },
   content: { padding: Spacing.lg },
   previewWrapper: { position: 'relative', marginBottom: Spacing.md },
-  previewImage: { width: '100%', aspectRatio: 1, borderRadius: Radius.md, backgroundColor: Colors.surface, overflow: 'hidden' as any },
-  placeholderImage: { width: '100%', aspectRatio: 1, borderRadius: Radius.md, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.md },
+  previewImage: { width: '100%', aspectRatio: 1, borderRadius: Radius.lg, backgroundColor: Colors.surfaceElevated, overflow: 'hidden' as any },
+  placeholderImage: { width: '100%', aspectRatio: 1, borderRadius: Radius.lg, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' as any },
   placeholderText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary },
-  captionInput: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, minHeight: 80, marginBottom: Spacing.md, color: Colors.text },
-  toolButton: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, marginBottom: Spacing.sm },
+  captionInput: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, minHeight: 80, marginBottom: Spacing.md, color: Colors.text, backgroundColor: Colors.surface },
+  toolButton: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 2, marginBottom: Spacing.sm, backgroundColor: Colors.surface },
   toolButtonText: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.text },
   toolBadge: { fontFamily: 'Inter-Regular', fontSize: FontSizes.sm, color: Colors.primary, marginLeft: 'auto' },
   filterScroll: { marginBottom: Spacing.md },
@@ -344,23 +348,25 @@ const styles = StyleSheet.create({
   filterCheck: { position: 'absolute', bottom: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
   filterName: { fontFamily: 'Inter-Regular', fontSize: FontSizes.xs, color: Colors.textSecondary, marginTop: 4 },
   filterNameSelected: { fontFamily: 'Inter-SemiBold', color: Colors.text },
-  musicList: { borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, marginBottom: Spacing.md, overflow: 'hidden' as any },
+  musicList: { borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, marginBottom: Spacing.md, overflow: 'hidden' as any },
   musicItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth || 0.5, borderBottomColor: Colors.border },
-  musicItemSelected: { backgroundColor: '#EAF5FF' },
-  musicIcon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
+  musicItemSelected: { backgroundColor: Colors.primaryLight },
+  musicIcon: { width: 36, height: 36, borderRadius: Radius.md, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center' },
   musicInfo: { flex: 1 },
   musicName: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.text },
   musicArtist: { fontFamily: 'Inter-Regular', fontSize: FontSizes.sm, color: Colors.textSecondary, marginTop: 2 },
-  filterBadgeRow: { position: 'absolute', bottom: Spacing.sm, right: Spacing.sm, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 4, paddingHorizontal: Spacing.sm, paddingVertical: 3 },
+  filterBadgeRow: { position: 'absolute', bottom: Spacing.sm, right: Spacing.sm, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 3 },
   filterBadgeText: { color: Colors.white, fontFamily: 'Inter-SemiBold', fontSize: FontSizes.xs },
-  reelBadge: { position: 'absolute', top: Spacing.sm, left: Spacing.sm, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 4, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
+  reelBadge: { position: 'absolute', top: Spacing.sm, left: Spacing.sm, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
   reelBadgeText: { color: Colors.white, fontFamily: 'Inter-SemiBold', fontSize: FontSizes.xs },
-  musicBadge: { position: 'absolute', bottom: Spacing.sm, left: Spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 4, paddingHorizontal: Spacing.sm, paddingVertical: 3 },
+  musicBadge: { position: 'absolute', bottom: Spacing.sm, left: Spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 3 },
   musicBadgeText: { color: Colors.white, fontFamily: 'Inter-SemiBold', fontSize: FontSizes.xs },
   sectionLabel: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.text, marginBottom: Spacing.sm },
   imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  gridItem: { width: '31%', aspectRatio: 1, borderRadius: Radius.sm, overflow: 'hidden' as any },
+  gridItem: { width: '31%', aspectRatio: 1, borderRadius: Radius.md, overflow: 'hidden' as any },
   gridItemSelected: { borderWidth: 3, borderColor: Colors.primary },
   gridImage: { width: '100%', height: '100%' },
-  overlay: { ...StyleSheet.absoluteFillObject as any, backgroundColor: 'rgba(255,255,255,0.8)', justifyContent: 'center', alignItems: 'center' },
+  overlay: { ...StyleSheet.absoluteFillObject as any, backgroundColor: 'rgba(255,255,255,0.85)', justifyContent: 'center', alignItems: 'center' },
+  overlayCard: { backgroundColor: Colors.white, borderRadius: Radius.xl, padding: Spacing.xl, alignItems: 'center', gap: Spacing.md, ...Shadows.medium },
+  overlayText: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.text },
 });

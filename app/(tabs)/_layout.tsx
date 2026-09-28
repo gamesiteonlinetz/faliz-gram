@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Home, Search, PlusSquare, Heart, User, PlayCircle, MessageCircle } from 'lucide-react-native';
-import { Colors } from '@/lib/theme';
+import { Colors, Shadows } from '@/lib/theme';
 import { Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 
@@ -22,8 +22,10 @@ export default function TabLayout() {
         tabBarInactiveTintColor: Colors.textSecondary,
         tabBarStyle: {
           borderTopColor: Colors.border,
+          borderTopWidth: 1,
           backgroundColor: Colors.background,
-          height: 50,
+          height: 54,
+          ...Shadows.small,
         },
       }}
     >

@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
-import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
+import { Colors, Spacing, FontSizes, Radius, Shadows } from '@/lib/theme';
 import type { Profile, Post } from '@/types/database';
 
 export default function SearchScreen() {
@@ -100,7 +100,7 @@ export default function SearchScreen() {
           autoCorrect={false}
         />
         {query.length > 0 && (
-          <Pressable onPress={() => { setQuery(''); setResults([]); }}>
+          <Pressable onPress={() => { setQuery(''); setResults([]); }} hitSlop={8}>
             <X color={Colors.textSecondary} size={18} strokeWidth={2} />
           </Pressable>
         )}
@@ -151,11 +151,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     margin: Spacing.lg,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   searchInput: {
     flex: 1,
@@ -179,30 +181,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: FontSizes.lg,
+    fontFamily: 'Inter-Bold',
+    fontSize: FontSizes.xl,
     color: Colors.text,
     paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   grid: {
-    paddingHorizontal: Spacing.xs,
+    paddingHorizontal: 2,
   },
   gridItem: {
-    margin: 1,
+    margin: 2,
     flex: 1 / 3,
     aspectRatio: 1,
+    borderRadius: Radius.sm,
+    overflow: 'hidden' as any,
   },
   gridImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceElevated,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
     gap: Spacing.md,
   },
   userInfo: {
@@ -222,5 +226,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
+    marginTop: 2,
   },
 });

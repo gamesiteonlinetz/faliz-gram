@@ -21,16 +21,16 @@ export function Avatar({ uri, size = 44, hasStory = false, onPress, username }: 
       );
     }
     return (
-      <View
-        style={[
-          styles.placeholder,
-          { width: size, height: size, borderRadius: size / 2 },
-        ]}
+      <LinearGradient
+        colors={[Colors.gradientStart, Colors.gradientEnd]}
+        style={[styles.placeholder, { width: size, height: size, borderRadius: size / 2 }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
         <Text style={[styles.placeholderText, { fontSize: size * 0.4 }]}>
           {username ? username[0].toUpperCase() : '?'}
         </Text>
-      </View>
+      </LinearGradient>
     );
   };
 
@@ -40,6 +40,8 @@ export function Avatar({ uri, size = 44, hasStory = false, onPress, username }: 
         <LinearGradient
           colors={[Colors.gradientStart, Colors.gradientEnd]}
           style={[styles.storyRing, { width: size + 6, height: size + 6, borderRadius: (size + 6) / 2 }]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
           <View style={[styles.storyInner, { width: size + 2, height: size + 2, borderRadius: (size + 2) / 2 }]}>
             {renderAvatar()}
@@ -61,7 +63,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
   },
   placeholder: {
-    backgroundColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
