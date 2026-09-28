@@ -89,6 +89,7 @@ async function handleEvent(event: Stripe.Event) {
     if (isSubscription) {
       console.info(`Starting subscription sync for customer: ${customerId}`);
       await syncCustomerFromStripe(customerId);
+      await syncVerificationForCustomer(customerId);
     } else if (mode === 'payment' && payment_status === 'paid') {
       try {
         // Extract the necessary information from the session
@@ -187,5 +188,33 @@ async function syncCustomerFromStripe(customerId: string) {
   } catch (error) {
     console.error(`Failed to sync subscription for customer ${customerId}:`, error);
     throw error;
+  }
+}
+
+async function syncVerificationForCustomer(customerId: string) {
+  try {
+    const { data: customer, error: customerError } = await supabase
+      .from('stripe_customers')
+      .select('user_id')
+      .eq('customer_id', customerId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (customerError || !customer?.user_id) {
+      console.info(`No user found for customer ${customerId}, skipping verification sync`);
+      return;
+    }
+
+    const { error: rpcError } = await supabase.rpc('sync_subscription_verification', {
+      p_user_id: customer.user_id,
+    });
+
+    if (rpcError) {
+      console.error(`Failed to sync verification for user ${customer.user_id}:`, rpcError);
+    } else {
+      console.info(`Verification synced for user ${customer.user_id}`);
+    }
+  } catch (error) {
+    console.error(`Failed to sync verification for customer ${customerId}:`, error);
   }
 }

@@ -33,15 +33,19 @@ import {
   BadgeCheck,
   KeyRound,
   MessageCircle,
+  CreditCard,
+  Sparkles,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
 
-type Section = 'main' | 'editProfile' | 'notifications' | 'privacy' | 'help' | 'about' | 'verification';
+type Section = 'main' | 'editProfile' | 'notifications' | 'privacy' | 'help' | 'about' | 'verification' | 'subscription';
 
 export default function SettingsScreen() {
-  const { profile, signOut, refreshProfile } = useAuth();
+  const { profile, session, signOut, refreshProfile } = useAuth();
   const [section, setSection] = useState<Section>('main');
   const [pushNotifs, setPushNotifs] = useState(true);
   const [emailNotifs, setEmailNotifs] = useState(true);
@@ -57,6 +61,9 @@ export default function SettingsScreen() {
   const [verifyCode, setVerifyCode] = useState('');
   const [adminToken, setAdminToken] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [subLoading, setSubLoading] = useState(false);
+  const [subStatus, setSubStatus] = useState<'active' | 'inactive' | 'none' | null>(null);
+  const [subPeriodEnd, setSubPeriodEnd] = useState<number | null>(null);
 
   const [editName, setEditName] = useState('');
   const [editUsername, setEditUsername] = useState('');
@@ -177,6 +184,86 @@ export default function SettingsScreen() {
     Alert.alert('Admin Verified!', data || 'Admin verification applied successfully.');
   };
 
+  const checkSubscriptionStatus = async () => {
+    if (!profile) return;
+    const { data: customer } = await supabase
+      .from('stripe_customers')
+      .select('customer_id')
+      .eq('user_id', profile.id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (!customer?.customer_id) { setSubStatus('none'); return; }
+    const { data: sub } = await supabase
+      .from('stripe_subscriptions')
+      .select('status, current_period_end')
+      .eq('customer_id', customer.customer_id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (!sub) { setSubStatus('none'); return; }
+    if (sub.status === 'active' || sub.status === 'trialing') {
+      setSubStatus('active');
+      setSubPeriodEnd(sub.current_period_end);
+    } else {
+      setSubStatus('inactive');
+      setSubPeriodEnd(sub.current_period_end);
+    }
+  };
+
+  const handleSubscribe = async () => {
+    if (!profile || !session) return;
+    setSubLoading(true);
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const accessToken = currentSession?.access_token;
+      if (!accessToken) { Alert.alert('Error', 'Please sign in again.'); return; }
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+      const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          price_id: 'price_verification_monthly',
+          success_url: window.location.href,
+          cancel_url: window.location.href,
+          mode: 'subscription',
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        Alert.alert('Error', err.error || 'Could not start checkout.');
+        return;
+      }
+      const { url } = await response.json();
+      if (url && typeof window !== 'undefined') {
+        window.location.href = url;
+      }
+    } catch {
+      Alert.alert('Error', 'Could not connect to payment service.');
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    Alert.alert(
+      'Cancel Subscription',
+      'Your verification badge will be removed when your current billing period ends. You can re-subscribe anytime.',
+      [
+        { text: 'Keep Subscription', style: 'cancel' },
+        { text: 'Cancel Subscription', style: 'destructive', onPress: async () => {
+          setSubLoading(true);
+          await supabase.rpc('sync_subscription_verification', { p_user_id: profile!.id });
+          await refreshProfile();
+          await checkSubscriptionStatus();
+          setSubLoading(false);
+          Alert.alert('Subscription Cancelled', 'Your verification will be removed at the end of the billing period.');
+        } },
+      ]
+    );
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
@@ -224,6 +311,89 @@ export default function SettingsScreen() {
     </Pressable>
   );
 
+  if (section === 'subscription') {
+    useEffect(() => { checkSubscriptionStatus(); }, [profile?.id]);
+    const formatDate = (epoch: number | null) => {
+      if (!epoch) return '';
+      return new Date(epoch * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+    return (
+      <View style={styles.container}>
+        <View style={styles.subHeader}>
+          <Pressable onPress={() => setSection('verification')}><ArrowLeft color={Colors.text} size={24} /></Pressable>
+          <Text style={styles.subHeaderTitle}>Verification Subscription</Text>
+          <View style={styles.spacer} />
+        </View>
+        <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.subHero}>
+            <View style={styles.verifyIcon}>
+              <Sparkles color={Colors.primary} size={36} />
+            </View>
+            <Text style={styles.verifyTitle}>Verified Badge Subscription</Text>
+            <Text style={styles.verifyDescription}>
+              Subscribe to get a verified badge next to your username. Your badge stays active as long as your subscription is active.
+            </Text>
+          </View>
+
+          {subStatus === null ? (
+            <ActivityIndicator color={Colors.primary} style={styles.subLoader} />
+          ) : subStatus === 'active' ? (
+            <View style={styles.card}>
+              <View style={styles.subStatusRow}>
+                <CheckCircle2 color={Colors.success} size={24} />
+                <View style={styles.subStatusInfo}>
+                  <Text style={styles.subStatusLabel}>Subscription Active</Text>
+                  {subPeriodEnd && (
+                    <Text style={styles.subStatusDetail}>Renews on {formatDate(subPeriodEnd)}</Text>
+                  )}
+                </View>
+              </View>
+              <Pressable style={styles.cancelButton} onPress={handleCancelSubscription} disabled={subLoading}>
+                {subLoading ? (
+                  <ActivityIndicator color={Colors.error} size="small" />
+                ) : (
+                  <Text style={styles.cancelButtonText}>Cancel Subscription</Text>
+                )}
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <View style={styles.priceRow}>
+              <Text style={styles.priceAmount}>$4.99</Text>
+                <Text style={styles.pricePeriod}>/month</Text>
+              </View>
+              <View style={styles.subFeatureRow}>
+                <CheckCircle2 color={Colors.primary} size={18} />
+                <Text style={styles.subFeatureText}>Verified badge next to your username</Text>
+              </View>
+              <View style={styles.subFeatureRow}>
+                <CheckCircle2 color={Colors.primary} size={18} />
+                <Text style={styles.subFeatureText}>Cancel anytime, no commitment</Text>
+              </View>
+              <View style={styles.subFeatureRow}>
+                <CheckCircle2 color={Colors.primary} size={18} />
+                <Text style={styles.subFeatureText}>Badge stays active while subscribed</Text>
+              </View>
+              {subStatus === 'inactive' && (
+                <View style={styles.subInactiveNote}>
+                  <XCircle color={Colors.error} size={16} />
+                  <Text style={styles.subInactiveText}>Your subscription is no longer active.</Text>
+                </View>
+              )}
+              <Pressable style={styles.verifyButton} onPress={handleSubscribe} disabled={subLoading}>
+                {subLoading ? (
+                  <ActivityIndicator color={Colors.white} size="small" />
+                ) : (
+                  <Text style={styles.verifyButtonText}>Subscribe with Stripe</Text>
+                )}
+              </Pressable>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
+
   if (section === 'verification') {
     return (
       <View style={styles.container}>
@@ -238,7 +408,7 @@ export default function SettingsScreen() {
               <BadgeCheck color={Colors.primary} size={48} />
               <Text style={styles.verifiedTitle}>You are verified!</Text>
               <Text style={styles.verifiedType}>
-                {profile.verification_type === 'lifetime' ? 'Lifetime Verified Badge' : 'Admin Verified'}
+                {profile.verification_type === 'lifetime' ? 'Lifetime Verified Badge' : profile.verification_type === 'admin' ? 'Admin Verified' : 'Subscription Verified'}
               </Text>
             </View>
           ) : (
@@ -255,6 +425,18 @@ export default function SettingsScreen() {
 
           {!profile?.is_verified && (
             <>
+              <Text style={styles.sectionHeading}>Subscription Badge</Text>
+              <Pressable style={styles.card} onPress={() => setSection('subscription')}>
+                <View style={styles.subPromoRow}>
+                  <View style={styles.navIcon}><Sparkles color={Colors.primary} size={20} /></View>
+                  <View style={styles.subPromoInfo}>
+                    <Text style={styles.navLabel}>Get Verified with Subscription</Text>
+                    <Text style={styles.subPromoDetail}>$4.99/month - Cancel anytime</Text>
+                  </View>
+                  <ChevronRight color={Colors.textSecondary} size={20} />
+                </View>
+              </Pressable>
+
               <Text style={styles.sectionHeading}>Lifetime Badge</Text>
               <View style={styles.card}>
                 <View style={styles.verifyInfoRow}>
@@ -483,10 +665,10 @@ export default function SettingsScreen() {
         <Text style={styles.sectionHeading}>Verification</Text>
         <View style={styles.card}>
           {renderNavRow(<BadgeCheck color={Colors.primary} size={20} />, 'Get Verified', () => setSection('verification'))}
-          {profile?.is_verified && (
+              {profile?.is_verified && (
             <View style={styles.verifiedRow}>
               <BadgeCheck color={Colors.primary} size={22} />
-              <Text style={styles.verifiedLabel}>Verified ({profile.verification_type === 'lifetime' ? 'Lifetime' : 'Admin'})</Text>
+              <Text style={styles.verifiedLabel}>Verified ({profile.verification_type === 'lifetime' ? 'Lifetime' : profile.verification_type === 'admin' ? 'Admin' : 'Subscription'})</Text>
             </View>
           )}
         </View>
@@ -567,4 +749,22 @@ const styles = StyleSheet.create({
   radioOuter: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
   radioOuterSelected: { borderColor: Colors.primary },
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+  subHero: { alignItems: 'center', paddingVertical: Spacing.lg },
+  subLoader: { marginTop: Spacing.xl },
+  subStatusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
+  subStatusInfo: { flex: 1, gap: 2 },
+  subStatusLabel: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.text },
+  subStatusDetail: { fontFamily: 'Inter-Regular', fontSize: FontSizes.sm, color: Colors.textSecondary },
+  cancelButton: { marginHorizontal: Spacing.md, marginBottom: Spacing.md, paddingVertical: Spacing.sm + 2, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.error, alignItems: 'center' },
+  cancelButtonText: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.error },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: Spacing.xs, paddingVertical: Spacing.lg },
+  priceAmount: { fontFamily: 'Inter-Bold', fontSize: FontSizes.xxxl, color: Colors.text },
+  pricePeriod: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.textSecondary },
+  subFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+  subFeatureText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.md, color: Colors.text, flex: 1 },
+  subInactiveNote: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, marginTop: Spacing.xs },
+  subInactiveText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.sm, color: Colors.error },
+  subPromoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
+  subPromoInfo: { flex: 1, gap: 2 },
+  subPromoDetail: { fontFamily: 'Inter-Regular', fontSize: FontSizes.sm, color: Colors.textSecondary },
 });
