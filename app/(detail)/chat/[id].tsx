@@ -1,7 +1,7 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Send, Phone, Video, Info, CheckCheck } from 'lucide-react-native';
+import { ArrowLeft, Send, Phone, Video, Info, CheckCheck, AlertCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
@@ -17,20 +17,44 @@ interface ChatMessage extends Message {
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuth();
+  const { width } = useWindowDimensions();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [other, setOther] = useState<Profile | null>(null);
   const [body, setBody] = useState('');
   const [otherTyping, setOtherTyping] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const isTablet = width >= 768;
+  const maxBubbleWidth = isTablet ? 480 : '72%';
+
   const loadChat = async () => {
     if (!id || !profile) return;
-    const { data: members } = await supabase.from('conversation_members').select('user_id, profiles:user_id (id, username, full_name, avatar_url, bio, created_at)').eq('conversation_id', id);
-    const otherMember = (members as any[] || []).find(member => member.user_id !== profile.id);
-    setOther(otherMember?.profiles || null);
-    const { data } = await supabase.from('messages').select('*').eq('conversation_id', id).order('created_at', { ascending: true });
-    setMessages((data as Message[]) || []);
+    setError(null);
+    setLoading(true);
+    try {
+      const { data: members, error: membersError } = await supabase
+        .from('conversation_members')
+        .select('user_id, profiles:user_id (id, username, full_name, avatar_url, bio, created_at)')
+        .eq('conversation_id', id);
+      if (membersError) throw membersError;
+      const otherMember = (members as any[] || []).find(member => member.user_id !== profile.id);
+      setOther(otherMember?.profiles || null);
+      const { data, error: msgError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', id)
+        .order('created_at', { ascending: true });
+      if (msgError) throw msgError;
+      setMessages((data as Message[]) || []);
+    } catch (e: any) {
+      setError(e?.message || 'Could not load messages');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useFocusEffect(useCallback(() => { loadChat(); }, [id, profile?.id]));
@@ -56,10 +80,29 @@ export default function ChatScreen() {
 
   const sendMessage = async () => {
     const trimmed = body.trim();
-    if (!trimmed || !id) return;
+    if (!trimmed || !id || sending) return;
     setBody('');
-    const { data } = await supabase.from('messages').insert({ conversation_id: id, body: trimmed }).select('*').maybeSingle();
-    if (data) setMessages(current => [...current, data as Message]);
+    setSending(true);
+    setError(null);
+    try {
+      const { data, error: insertError } = await supabase
+        .from('messages')
+        .insert({ conversation_id: id, body: trimmed })
+        .select('*')
+        .maybeSingle();
+      if (insertError) throw insertError;
+      if (data) {
+        setMessages(current => {
+          if (current.some(m => m.id === data.id)) return current;
+          return [...current, data as Message];
+        });
+      }
+    } catch (e: any) {
+      setBody(trimmed);
+      setError(e?.message || 'Failed to send message');
+    } finally {
+      setSending(false);
+    }
   };
 
   const formatTime = (dateStr: string) => {
@@ -163,24 +206,40 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={processedMessages}
-        keyExtractor={item => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messages}
-        onContentSizeChange={() => { flatListRef.current?.scrollToEnd({ animated: true }); }}
-        onLayout={() => { flatListRef.current?.scrollToEnd({ animated: false }); }}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <View style={styles.emptyIcon}>
-              <Send color={Colors.textLight} size={28} strokeWidth={1.5} />
-            </View>
-            <Text style={styles.emptyTitle}>Start the conversation</Text>
-            <Text style={styles.emptyText}>Send a message to {other?.username || 'this person'}.</Text>
+      {error && (
+        <View style={styles.errorBar}>
+          <View style={styles.errorContent}>
+            <AlertCircle color={Colors.error} size={16} />
+            <Text style={styles.errorText}>{error}</Text>
           </View>
-        }
-      />
+          <Pressable onPress={() => { setError(null); loadChat(); }}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {loading ? (
+        <ActivityIndicator color={Colors.primary} style={styles.loader} />
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={processedMessages}
+          keyExtractor={item => item.id}
+          renderItem={renderMessage}
+          contentContainerStyle={[styles.messages, isTablet && styles.messagesTablet]}
+          onContentSizeChange={() => { flatListRef.current?.scrollToEnd({ animated: true }); }}
+          onLayout={() => { flatListRef.current?.scrollToEnd({ animated: false }); }}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <View style={styles.emptyIcon}>
+                <Send color={Colors.textLight} size={28} strokeWidth={1.5} />
+              </View>
+              <Text style={styles.emptyTitle}>Start the conversation</Text>
+              <Text style={styles.emptyText}>Send a message to {other?.username || 'this person'}.</Text>
+            </View>
+          }
+        />
+      )}
 
       {otherTyping && (
         <View style={styles.typingBar}>
@@ -193,7 +252,7 @@ export default function ChatScreen() {
         </View>
       )}
 
-      <View style={styles.composer}>
+      <View style={[styles.composer, isTablet && styles.composerTablet]}>
         <TextInput
           value={body}
           onChangeText={setBody}
@@ -201,14 +260,19 @@ export default function ChatScreen() {
           placeholderTextColor={Colors.textSecondary}
           style={styles.composerInput}
           multiline
+          maxLength={2000}
         />
         <Pressable
-          style={[styles.sendButton, !body.trim() && styles.sendButtonDisabled]}
+          style={[styles.sendButton, (!body.trim() || sending) && styles.sendButtonDisabled]}
           onPress={sendMessage}
-          disabled={!body.trim()}
+          disabled={!body.trim() || sending}
           hitSlop={8}
         >
-          <Send color={body.trim() ? Colors.white : Colors.textLight} size={18} strokeWidth={2} />
+          {sending ? (
+            <ActivityIndicator color={Colors.white} size="small" />
+          ) : (
+            <Send color={body.trim() ? Colors.white : Colors.textLight} size={18} strokeWidth={2} />
+          )}
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -223,7 +287,13 @@ const styles = StyleSheet.create({
   title: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.text },
   statusText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.xs, color: Colors.success },
   headerActions: { flexDirection: 'row', gap: Spacing.md },
+  errorBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, backgroundColor: '#FEF2F2', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  errorContent: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flex: 1 },
+  errorText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.sm, color: Colors.error, flex: 1 },
+  retryText: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.sm, color: Colors.primary },
+  loader: { flex: 1, justifyContent: 'center' },
   messages: { padding: Spacing.lg, gap: 2, flexGrow: 1, justifyContent: 'flex-end' },
+  messagesTablet: { maxWidth: 720, alignSelf: 'center', width: '100%' },
   dateSeparator: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.md },
   dateLine: { flex: 1, height: 1, backgroundColor: Colors.border },
   dateText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.xs, color: Colors.textSecondary, textTransform: 'uppercase' },
@@ -231,8 +301,8 @@ const styles = StyleSheet.create({
   myMessageRow: { justifyContent: 'flex-end' },
   theirMessageRow: { justifyContent: 'flex-start' },
   avatarSlot: { width: 28, height: 28, marginBottom: 2 },
-  messageBubble: { maxWidth: '72%', borderRadius: Radius.xl, paddingHorizontal: Spacing.md + 2, paddingVertical: Spacing.sm + 2, },
-  myMessage: { alignSelf: 'flex-end', backgroundColor: Colors.primary, borderBottomRightRadius: 6, },
+  messageBubble: { maxWidth: '72%', borderRadius: Radius.xl, paddingHorizontal: Spacing.md + 2, paddingVertical: Spacing.sm + 2 },
+  myMessage: { alignSelf: 'flex-end', backgroundColor: Colors.primary, borderBottomRightRadius: 6 },
   theirMessage: { alignSelf: 'flex-start', backgroundColor: Colors.surface, borderBottomLeftRadius: 6, borderWidth: 1, borderColor: Colors.border },
   myMessageGrouped: { borderBottomRightRadius: Radius.xl },
   theirMessageGrouped: { borderBottomLeftRadius: Radius.xl },
@@ -252,7 +322,8 @@ const styles = StyleSheet.create({
   typingDot3: { opacity: 0.3 },
   typingText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.xs, color: Colors.textSecondary },
   composer: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
-  composerInput: { flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm + 2, color: Colors.text, fontFamily: 'Inter-Regular', fontSize: FontSizes.md, backgroundColor: Colors.surface },
+  composerTablet: { maxWidth: 720, alignSelf: 'center', width: '100%' },
+  composerInput: { flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm + 2, color: Colors.text, fontFamily: 'Inter-Regular', fontSize: FontSizes.md, backgroundColor: Colors.surface, maxHeight: 120 },
   sendButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   sendButtonDisabled: { backgroundColor: Colors.border },
 });

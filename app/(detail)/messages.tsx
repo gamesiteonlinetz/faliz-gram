@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, FlatList, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { ArrowLeft, Search, Send, Edit2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
@@ -18,10 +18,17 @@ interface InboxRow {
 
 export default function MessagesScreen() {
   const { profile } = useAuth();
+  const { width } = useWindowDimensions();
   const [rows, setRows] = useState<InboxRow[]>([]);
   const [query, setQuery] = useState('');
   const [people, setPeople] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  const isTablet = width >= 768;
+  const maxListWidth = isTablet ? 720 : width;
+  const avatarSize = isTablet ? 60 : 56;
 
   const formatTime = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -37,31 +44,56 @@ export default function MessagesScreen() {
 
   const loadInbox = async () => {
     if (!profile) return;
-    const { data: memberships } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', profile.id);
-    const ids = (memberships || []).map(item => item.conversation_id);
-    if (!ids.length) {
-      setRows([]);
+    setError(null);
+    try {
+      const { data: memberships, error: memberError } = await supabase
+        .from('conversation_members')
+        .select('conversation_id')
+        .eq('user_id', profile.id);
+      if (memberError) throw memberError;
+      const ids = (memberships || []).map(item => item.conversation_id);
+      if (!ids.length) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+      const { data: conversations, error: convError } = await supabase
+        .from('conversations')
+        .select('*')
+        .in('id', ids)
+        .order('created_at', { ascending: false });
+      if (convError) throw convError;
+      const nextRows: InboxRow[] = [];
+      for (const conversation of (conversations || []) as Conversation[]) {
+        const { data: members, error: membersError } = await supabase
+          .from('conversation_members')
+          .select('user_id, profiles:user_id (id, username, full_name, avatar_url, bio, created_at)')
+          .eq('conversation_id', conversation.id);
+        if (membersError) continue;
+        const otherMember = (members as any[] || []).find(member => member.user_id !== profile.id) as ConversationMember | undefined;
+        if (!otherMember?.profiles) continue;
+        const { data: lastMessage } = await supabase
+          .from('messages')
+          .select('body, created_at, sender_id')
+          .eq('conversation_id', conversation.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        nextRows.push({
+          conversation,
+          other: otherMember.profiles as Profile,
+          lastMessage: lastMessage?.body || 'Start a conversation',
+          lastMessageAt: lastMessage?.created_at || conversation.created_at,
+          unread: lastMessage && lastMessage.sender_id !== profile.id && (Date.now() - new Date(lastMessage.created_at).getTime()) < 60000 || false,
+        });
+      }
+      nextRows.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+      setRows(nextRows);
+    } catch (e: any) {
+      setError(e?.message || 'Could not load messages');
+    } finally {
       setLoading(false);
-      return;
     }
-    const { data: conversations } = await supabase.from('conversations').select('*').in('id', ids).order('created_at', { ascending: false });
-    const nextRows: InboxRow[] = [];
-    for (const conversation of (conversations || []) as Conversation[]) {
-      const { data: members } = await supabase.from('conversation_members').select('user_id, profiles:user_id (id, username, full_name, avatar_url, bio, created_at)').eq('conversation_id', conversation.id);
-      const otherMember = (members as any[] || []).find(member => member.user_id !== profile.id) as ConversationMember | undefined;
-      if (!otherMember?.profiles) continue;
-      const { data: lastMessage } = await supabase.from('messages').select('body, created_at, sender_id').eq('conversation_id', conversation.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      nextRows.push({
-        conversation,
-        other: otherMember.profiles as Profile,
-        lastMessage: lastMessage?.body || 'Start a conversation',
-        lastMessageAt: lastMessage?.created_at || conversation.created_at,
-        unread: lastMessage && lastMessage.sender_id !== profile.id && (Date.now() - new Date(lastMessage.created_at).getTime()) < 60000 || false,
-      });
-    }
-    nextRows.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-    setRows(nextRows);
-    setLoading(false);
   };
 
   useFocusEffect(useCallback(() => { loadInbox(); }, [profile?.id]));
@@ -69,23 +101,62 @@ export default function MessagesScreen() {
   const searchPeople = async (text: string) => {
     setQuery(text);
     if (!text.trim() || !profile) { setPeople([]); return; }
-    const { data } = await supabase.from('profiles').select('*').ilike('username', `%${text.trim()}%`).neq('id', profile.id).limit(8);
-    setPeople((data as Profile[]) || []);
+    setSearching(true);
+    try {
+      const { data, error: searchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('username', `%${text.trim()}%`)
+        .neq('id', profile.id)
+        .limit(8);
+      if (searchError) throw searchError;
+      setPeople((data as Profile[]) || []);
+    } catch {
+      setPeople([]);
+    } finally {
+      setSearching(false);
+    }
   };
 
   const openConversation = async (person: Profile) => {
     if (!profile) return;
-    const existing = rows.find(row => row.other.id === person.id);
-    if (existing) { router.push(`/chat/${existing.conversation.id}`); return; }
-    const { data: conversation, error } = await supabase.from('conversations').insert({ created_by: profile.id }).select('*').maybeSingle();
-    if (error || !conversation) return;
-    await supabase.from('conversation_members').insert([
-      { conversation_id: conversation.id, user_id: profile.id },
-      { conversation_id: conversation.id, user_id: person.id },
-    ]);
-    setQuery('');
-    setPeople([]);
-    router.push(`/chat/${conversation.id}`);
+    setError(null);
+    try {
+      const existing = rows.find(row => row.other.id === person.id);
+      if (existing) {
+        router.push(`/chat/${existing.conversation.id}`);
+        return;
+      }
+      const { data: conversation, error: convError } = await supabase
+        .from('conversations')
+        .insert({ created_by: profile.id })
+        .select('*')
+        .maybeSingle();
+      if (convError || !conversation) {
+        setError('Could not start conversation');
+        return;
+      }
+      const { error: selfMemberError } = await supabase
+        .from('conversation_members')
+        .insert({ conversation_id: conversation.id, user_id: profile.id });
+      if (selfMemberError) {
+        setError('Could not join conversation');
+        return;
+      }
+      const { error: otherMemberError } = await supabase
+        .from('conversation_members')
+        .insert({ conversation_id: conversation.id, user_id: person.id });
+      if (otherMemberError) {
+        await supabase.from('conversations').delete().eq('id', conversation.id);
+        setError('Could not add recipient to conversation');
+        return;
+      }
+      setQuery('');
+      setPeople([]);
+      router.push(`/chat/${conversation.id}`);
+    } catch (e: any) {
+      setError(e?.message || 'Could not start conversation');
+    }
   };
 
   return (
@@ -97,7 +168,7 @@ export default function MessagesScreen() {
         <Text style={styles.title}>Messages</Text>
         <Send color={Colors.text} size={22} strokeWidth={2} />
       </View>
-      <View style={styles.searchBox}>
+      <View style={[styles.searchBox, isTablet && styles.searchBoxTablet]}>
         <Search color={Colors.textSecondary} size={18} strokeWidth={2} />
         <TextInput
           value={query}
@@ -108,9 +179,18 @@ export default function MessagesScreen() {
           autoCapitalize="none"
           autoCorrect={false}
         />
+        {searching && <ActivityIndicator color={Colors.textSecondary} size="small" />}
       </View>
+      {error && (
+        <View style={styles.errorBar}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={() => { setError(null); loadInbox(); }}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      )}
       {people.length > 0 && (
-        <View style={styles.peopleBox}>
+        <View style={[styles.peopleBox, isTablet && styles.peopleBoxTablet]}>
           <FlatList
             data={people}
             keyExtractor={item => item.id}
@@ -129,42 +209,45 @@ export default function MessagesScreen() {
       {loading ? (
         <ActivityIndicator color={Colors.primary} style={styles.loader} />
       ) : (
-        <FlatList
-          data={rows}
-          keyExtractor={item => item.conversation.id}
-          renderItem={({ item }) => (
-            <Pressable
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-              onPress={() => router.push(`/chat/${item.conversation.id}`)}
-            >
-              <View style={styles.avatarWrap}>
-                <Avatar uri={item.other.avatar_url} size={56} username={item.other.username} />
-                {item.unread && <View style={styles.unreadDot} />}
-              </View>
-              <View style={styles.rowBody}>
-                <View style={styles.rowTop}>
-                  <Text style={[styles.username, item.unread && styles.usernameUnread]}>{item.other.username}</Text>
-                  <Text style={styles.timestamp}>{formatTime(item.lastMessageAt)}</Text>
+        <View style={styles.listContainer}>
+          <FlatList
+            style={{ maxWidth: maxListWidth, width: '100%', alignSelf: 'center' }}
+            data={rows}
+            keyExtractor={item => item.conversation.id}
+            renderItem={({ item }) => (
+              <Pressable
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                onPress={() => router.push(`/chat/${item.conversation.id}`)}
+              >
+                <View style={styles.avatarWrap}>
+                  <Avatar uri={item.other.avatar_url} size={avatarSize} username={item.other.username} />
+                  {item.unread && <View style={styles.unreadDot} />}
                 </View>
-                <Text
-                  style={[styles.preview, item.unread && styles.previewUnread]}
-                  numberOfLines={1}
-                >
-                  {item.lastMessage}
-                </Text>
+                <View style={styles.rowBody}>
+                  <View style={styles.rowTop}>
+                    <Text style={[styles.username, item.unread && styles.usernameUnread]}>{item.other.username}</Text>
+                    <Text style={styles.timestamp}>{formatTime(item.lastMessageAt)}</Text>
+                  </View>
+                  <Text
+                    style={[styles.preview, item.unread && styles.previewUnread]}
+                    numberOfLines={1}
+                  >
+                    {item.lastMessage}
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <View style={styles.emptyIcon}>
+                  <Edit2 color={Colors.textLight} size={32} strokeWidth={1.5} />
+                </View>
+                <Text style={styles.emptyTitle}>Your messages</Text>
+                <Text style={styles.emptyText}>Search for someone above to start a private conversation.</Text>
               </View>
-            </Pressable>
-          )}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={styles.emptyIcon}>
-                <Edit2 color={Colors.textLight} size={32} strokeWidth={1.5} />
-              </View>
-              <Text style={styles.emptyTitle}>Your messages</Text>
-              <Text style={styles.emptyText}>Search for someone above to start a private conversation.</Text>
-            </View>
-          }
-        />
+            }
+          />
+        </View>
       )}
     </View>
   );
@@ -175,11 +258,16 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
   title: { fontFamily: 'Inter-Bold', fontSize: FontSizes.xxl, color: Colors.text },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, margin: Spacing.lg, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 2, backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border },
+  searchBoxTablet: { maxWidth: 720, alignSelf: 'center', width: '100%' },
   input: { flex: 1, color: Colors.text, fontFamily: 'Inter-Regular', fontSize: FontSizes.md },
   peopleBox: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  peopleBoxTablet: { maxWidth: 720, alignSelf: 'center', width: '100%' },
   personRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm + 2 },
   personInfo: { gap: 2 },
   personFullName: { fontFamily: 'Inter-Regular', fontSize: FontSizes.sm, color: Colors.textSecondary },
+  errorBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: Spacing.lg, marginBottom: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: '#FEF2F2', borderRadius: Radius.lg },
+  errorText: { fontFamily: 'Inter-Regular', fontSize: FontSizes.sm, color: Colors.error, flex: 1 },
+  retryText: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.sm, color: Colors.primary },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
   rowPressed: { backgroundColor: Colors.surface },
   avatarWrap: { position: 'relative' },
@@ -192,6 +280,7 @@ const styles = StyleSheet.create({
   preview: { fontFamily: 'Inter-Regular', fontSize: FontSizes.sm, color: Colors.textSecondary, marginTop: 3 },
   previewUnread: { color: Colors.text, fontFamily: 'Inter-Medium' },
   loader: { marginTop: Spacing.xl },
+  listContainer: { flex: 1 },
   empty: { alignItems: 'center', padding: Spacing.xxl },
   emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
   emptyTitle: { fontFamily: 'Inter-Bold', fontSize: FontSizes.xl, color: Colors.text },
