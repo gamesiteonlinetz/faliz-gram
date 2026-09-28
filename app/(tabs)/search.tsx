@@ -14,6 +14,7 @@ import { Search as SearchIcon, X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
+import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { Colors, Spacing, FontSizes, Radius } from '@/lib/theme';
 import type { Profile, Post } from '@/types/database';
 
@@ -74,7 +75,10 @@ export default function SearchScreen() {
     >
       <Avatar uri={item.avatar_url} size={48} username={item.username} />
       <View style={styles.userInfo}>
-        <Text style={styles.userUsername}>{item.username}</Text>
+        <View style={styles.userUsernameRow}>
+          <Text style={styles.userUsername}>{item.username}</Text>
+          {item.is_verified && <VerifiedBadge size={14} />}
+        </View>
         <Text style={styles.userFullName} numberOfLines={1}>
           {item.full_name}
         </Text>
@@ -203,6 +207,11 @@ const styles = StyleSheet.create({
   },
   userInfo: {
     flex: 1,
+  },
+  userUsernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   userUsername: {
     fontFamily: 'Inter-SemiBold',

@@ -386,6 +386,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
+  postUsernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
   postUsername: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSizes.md,
