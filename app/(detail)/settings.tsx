@@ -75,6 +75,18 @@ export default function SettingsScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  useEffect(() => {
+    if (section === 'subscription' && profile) {
+      checkSubscriptionStatus();
+    }
+  }, [section, profile?.id]);
+
+  useEffect(() => {
+    if (section === 'privacy' && profile) {
+      loadPrivacySettings();
+    }
+  }, [section, profile?.id]);
+
   const loadPrivacySettings = async () => {
     if (!profile) return;
     setDmPermission(profile.dm_permission ?? 'everyone');
@@ -312,7 +324,6 @@ export default function SettingsScreen() {
   );
 
   if (section === 'subscription') {
-    useEffect(() => { checkSubscriptionStatus(); }, [profile?.id]);
     const formatDate = (epoch: number | null) => {
       if (!epoch) return '';
       return new Date(epoch * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -552,7 +563,6 @@ export default function SettingsScreen() {
   }
 
   if (section === 'privacy') {
-    useEffect(() => { loadPrivacySettings(); }, [profile?.id]);
     return (
       <View style={styles.container}>
         <View style={styles.subHeader}>
