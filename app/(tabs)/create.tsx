@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,12 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Music2, Sparkles, Wand2, Check } from 'lucide-react-native';
+import { Music2, Sparkles, Wand2, Check, Upload, Film } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Colors, Spacing, FontSizes, Radius, Shadows } from '@/lib/theme';
@@ -60,6 +62,8 @@ const FILTERS = [
 
 type Mode = 'post' | 'reel' | 'story';
 
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
 export default function CreateScreen() {
   const { profile } = useAuth();
   const [mode, setMode] = useState<Mode>('post');
@@ -72,8 +76,73 @@ export default function CreateScreen() {
   const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
 
   const currentFilter = FILTERS[selectedFilter];
+
+  const pickFile = async (type: 'image' | 'video') => {
+    if (!profile) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: type === 'image' ? 'image/*' : 'video/*',
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      const asset = result.assets[0];
+      if (asset.size && asset.size > MAX_FILE_SIZE) {
+        Alert.alert('File too large', 'Please choose a file under 50 MB.');
+        return;
+      }
+
+      setUploading(true);
+      setUploadProgress('Uploading...');
+
+      const ext = asset.name.split('.').pop()?.toLowerCase() || (type === 'image' ? 'jpg' : 'mp4');
+      const fileName = `${Date.now()}.${ext}`;
+      const filePath = `${profile.id}/${fileName}`;
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri: asset.uri,
+        name: fileName,
+        type: asset.mimeType || (type === 'image' ? 'image/jpeg' : 'video/mp4'),
+      } as any);
+
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(filePath, formData, {
+          contentType: asset.mimeType || (type === 'image' ? 'image/jpeg' : 'video/mp4'),
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('media')
+        .getPublicUrl(filePath);
+
+      const publicUrl = publicUrlData.publicUrl;
+
+      if (type === 'image') {
+        setSelectedImage(publicUrl);
+        if (mode === 'reel') setSelectedReel(null);
+      } else {
+        const thumbUrl = SAMPLE_REELS[0].thumbnail_url;
+        setSelectedReel({ video_url: publicUrl, thumbnail_url: thumbUrl });
+        setSelectedImage(null);
+      }
+
+      setUploadProgress('');
+    } catch (e: any) {
+      Alert.alert('Upload failed', e?.message || 'Could not upload your file. Please try again.');
+    } finally {
+      setUploading(false);
+      setUploadProgress('');
+    }
+  };
 
   const handlePost = async () => {
     if (!profile) return;
@@ -276,8 +345,32 @@ export default function CreateScreen() {
           </>
         )}
 
+        <Pressable
+          style={[styles.uploadButton, uploading && styles.uploadButtonDisabled]}
+          onPress={() => pickFile(mode === 'reel' ? 'video' : 'image')}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <>
+              <ActivityIndicator color={Colors.primary} size="small" />
+              <Text style={styles.uploadButtonText}>{uploadProgress || 'Uploading...'}</Text>
+            </>
+          ) : (
+            <>
+              {mode === 'reel' ? (
+                <Film color={Colors.primary} size={18} />
+              ) : (
+                <Upload color={Colors.primary} size={18} />
+              )}
+              <Text style={styles.uploadButtonText}>
+                Upload from device
+              </Text>
+            </>
+          )}
+        </Pressable>
+
         <Text style={styles.sectionLabel}>
-          {mode === 'story' ? 'Choose a photo' : mode === 'post' ? 'Choose a photo' : 'Choose a video'}
+          {mode === 'story' ? 'Or choose a sample photo' : mode === 'post' ? 'Or choose a sample photo' : 'Or choose a sample video'}
         </Text>
 
         {mode === 'reel' ? (
@@ -307,11 +400,11 @@ export default function CreateScreen() {
         )}
       </ScrollView>
 
-      {posting && (
+      {(posting || uploading) && (
         <View style={styles.overlay}>
           <View style={styles.overlayCard}>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.overlayText}>Sharing...</Text>
+            <Text style={styles.overlayText}>{uploading ? 'Uploading...' : 'Sharing...'}</Text>
           </View>
         </View>
       )}
@@ -361,7 +454,10 @@ const styles = StyleSheet.create({
   reelBadgeText: { color: Colors.white, fontFamily: 'Inter-SemiBold', fontSize: FontSizes.xs },
   musicBadge: { position: 'absolute', bottom: Spacing.sm, left: Spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 3 },
   musicBadgeText: { color: Colors.white, fontFamily: 'Inter-SemiBold', fontSize: FontSizes.xs },
-  sectionLabel: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.text, marginBottom: Spacing.sm },
+  uploadButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, borderWidth: 2, borderColor: Colors.primary, borderRadius: Radius.lg, paddingVertical: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.primaryLight },
+  uploadButtonDisabled: { opacity: 0.6 },
+  uploadButtonText: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.md, color: Colors.primary },
+  sectionLabel: { fontFamily: 'Inter-SemiBold', fontSize: FontSizes.sm, color: Colors.textSecondary, marginBottom: Spacing.sm },
   imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   gridItem: { width: '31%', aspectRatio: 1, borderRadius: Radius.md, overflow: 'hidden' as any },
   gridItemSelected: { borderWidth: 3, borderColor: Colors.primary },
