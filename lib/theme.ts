@@ -1,4 +1,30 @@
-export const Colors = {
+export type ThemeMode = 'light' | 'dark';
+
+interface ThemeColors {
+  primary: string;
+  primaryDark: string;
+  primaryLight: string;
+  gradientStart: string;
+  gradientEnd: string;
+  background: string;
+  surface: string;
+  surfaceElevated: string;
+  border: string;
+  borderStrong: string;
+  text: string;
+  textSecondary: string;
+  textLight: string;
+  error: string;
+  success: string;
+  warning: string;
+  black: string;
+  white: string;
+  overlay: string;
+  scrim: string;
+  badge: string;
+}
+
+const lightColors: ThemeColors = {
   primary: '#0095F6',
   primaryDark: '#0077C6',
   primaryLight: '#E8F4FE',
@@ -21,6 +47,54 @@ export const Colors = {
   scrim: 'rgba(0,0,0,0.25)',
   badge: '#3897F0',
 };
+
+const darkColors: ThemeColors = {
+  primary: '#0095F6',
+  primaryDark: '#0077C6',
+  primaryLight: '#1A3A4A',
+  gradientStart: '#F58529',
+  gradientEnd: '#DD2A7B',
+  background: '#000000',
+  surface: '#121212',
+  surfaceElevated: '#1E1E1E',
+  border: '#262626',
+  borderStrong: '#363636',
+  text: '#FFFFFF',
+  textSecondary: '#A0A0A0',
+  textLight: '#666666',
+  error: '#ED4956',
+  success: '#34C759',
+  warning: '#FFB700',
+  black: '#000000',
+  white: '#FFFFFF',
+  overlay: 'rgba(255,255,255,0.15)',
+  scrim: 'rgba(0,0,0,0.6)',
+  badge: '#3897F0',
+};
+
+let currentMode: ThemeMode = 'light';
+const listeners = new Set<() => void>();
+
+export const Colors = lightColors;
+export const DarkColors = darkColors;
+
+export function getColors(): ThemeColors {
+  return currentMode === 'dark' ? darkColors : lightColors;
+}
+
+export function getThemeMode(): ThemeMode {
+  return currentMode;
+}
+
+export function setThemeMode(mode: ThemeMode) {
+  currentMode = mode;
+  listeners.forEach(fn => fn());
+}
+
+export function subscribeTheme(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => { listeners.delete(fn); };
+}
 
 export const Shadows = {
   small: {
